@@ -7,7 +7,8 @@ export Id, intpoint, l1norm, l1ball, l2norm, tvnorm1d, prox,
 
 import Base:+,*,-,\,^
 using Base.LinAlg.BLAS:axpy!,scal!
-using SpecialMatrices
+using SymWoodburyMatrix
+using BlockMatrix
 
 ViewTypes   = Union{SubArray}
 VectorTypes = Union{Matrix, Vector, ViewTypes}
@@ -366,7 +367,7 @@ function intpoint(
   verbose = true,          # Verbose Output
   maxRefinementSteps = 3,  # Maximum number of IR Steps
   maxIters = 100,          # Maximum number of interior iterations
-  cache_nestodd = true     # Set to true if there are many small blocks
+  cache_nestodd = false     # Set to true if there are many small blocks
 
   )
 
