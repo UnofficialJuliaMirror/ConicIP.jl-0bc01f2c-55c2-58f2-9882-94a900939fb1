@@ -294,8 +294,8 @@ facts("LBFGS module") do
     H = randn(n); H = H*H'
     c = (1:n)''
 
-    A = [speye(n)]
-    b = [zeros(n,1)]
+    A = speye(n)
+    b = zeros(n,1)
 
     G = [1 zeros(1,9)]
     d = -ones(1,1)

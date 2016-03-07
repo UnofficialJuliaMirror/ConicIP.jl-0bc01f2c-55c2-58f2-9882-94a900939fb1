@@ -3,12 +3,12 @@ isdefined(Base, :__precompile__) && __precompile__()
 module IntPoint
 
 export Id, intpoint, l1norm, l1ball, l2norm, tvnorm1d, prox,
-       Diag, partialInv, SymWoodbury
+       Diag, partialInv
 
 import Base:+,*,-,\,^
 using Base.LinAlg.BLAS:axpy!,scal!
-using SymWoodburyMatrix
-using BlockMatrix
+using SymWoodburyMatrices
+using BlockMatrices
 
 ViewTypes   = Union{SubArray}
 VectorTypes = Union{Matrix, Vector, ViewTypes}
@@ -350,7 +350,7 @@ function intpoint(
   A, b::Matrix, cone_dims,
 
   # Gx = d
-  G = zeros(0,length(c)), d = zeros(0,1);
+  G = spzeros(0,length(c)), d = zeros(0,1);
 
   # Solver Parameters
 
@@ -540,15 +540,17 @@ function intpoint(
       # Default (slow) solver.
       F² = full(F⁻¹^2)
       Z  = [ Q + Aᵀ*F²*A  Gᵀ
-             G            zeros(p,p) ]
+             G            spzeros(p,p) ]
       function solve2x2(r1, r2)
-        l = inv(Z)*[r1; r2]
+        l = Z\[r1; r2]
         return(l[1:n,:], l[n+1:end,:])
       end
 
     else
+    
       # Otherwise, create cache from L
       solve2x2 = solve2x2gen(F)
+    
     end
 
     function solve4x4(r)
@@ -560,6 +562,7 @@ function intpoint(
       # │ Q + A'F²A   G' │ │ Δy │   │ r.y + A'inv(S)(V*r.v + r.s) │
       # │ G              │ │ Δw │ = │ r.w                         │
       # └                ┘ └    ┘   └                             ┘
+      
       t1  = r.s ÷ λ              # inv(block(λ))*F
       t2  = F⁻¹*(F⁻¹*r.v + t1)   # inv(S)V*r.v + inv(S)*r.s
       (Δy, Δw)  = solve2x2(r.y + Aᵀ*t2, r.w)
