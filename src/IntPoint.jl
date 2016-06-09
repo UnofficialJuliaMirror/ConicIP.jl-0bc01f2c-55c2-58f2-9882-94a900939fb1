@@ -692,7 +692,7 @@ function intpoint(
     # ────────────────────────────────────────────────────────────
 
     rDu = norm(r0.y)/(1+norm(c))
-    rPr = normsafe(r0.v)/normsafe(b)
+    rPr = normsafe(r0.v)/(1 + normsafe(b))
     rCp = normsafe(r0.s)/(1+abs(c'z.y)[1]); # [1] acts as a cast
 
     if verbose
