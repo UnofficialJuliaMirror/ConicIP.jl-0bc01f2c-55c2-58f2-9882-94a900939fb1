@@ -15,6 +15,9 @@ VectorTypes = Union{Matrix, Vector, ViewTypes}
 MatrixTypes = Union{Matrix, Array{Real,2},
                     SparseMatrixCSC{Real,Integer}}
 
+# returns 0 for matrices with dimension 0.
+normsafe(x) = isempty(x) ? 0 : norm(x)
+
 # ──────────────────────────────────────────────────────────────
 #  3x1 block vector
 # ──────────────────────────────────────────────────────────────
@@ -25,10 +28,7 @@ type v4x1; y::Matrix; w::Matrix; v::Matrix; s::Matrix; end
 *(α::Real, a::v4x1) = v4x1(α*a.y, α*a.w, α*a.v, α*a.s);
 -(a::v4x1)          = v4x1(-a.y, -a.w, -a.v, -a.s);
 -(a::v4x1, b::v4x1) = v4x1(a.y - b.y, a.w - b.w, a.v - b.v, a.s - b.s)
-Base.norm(a::v4x1)  = ( norm(a.y)
-                         + (isempty(a.w) ? 0 : norm(a.w))
-                         + norm(a.v)
-                         + norm(a.s) )
+Base.norm(a::v4x1)  = norm(a.y) + normsafe(a.w) + normsafe(a.v) + normsafe(a.s) 
 Base.println(z::v4x1)  = println("y: ", z.y',
                          "\ng: ", z.w,
                          "\nv: ", z.v',
@@ -400,7 +400,7 @@ function intpoint(
 
   # Sanity Checks
   ◂ = nothing
-  m != sum(block_sizes) ? error("Inconsistency in inequalities") : ◂
+  #!(m == 0 && length(block_sizes) == 0) || m != sum(block_sizes) ? error("Inconsistency in inequalities") : ◂
   size(Q,1) != size(Q,2)? error("Q is not square") : ◂
   size(b,1) != m        ? error("Inconsistency in inequalities") : ◂
   size(c,1) != n        ? error("Inconsistency in inequalities/objective") : ◂
@@ -534,8 +534,8 @@ function intpoint(
     if solve2x2gen == nothing
 
       # Default (slow) solver.
-      F² = full(F⁻¹^2)
-      Z  = [ Q + Aᵀ*F²*A  Gᵀ
+      F⁻² = full(F⁻¹^2)
+      Z  = [ Q + Aᵀ*F⁻²*A  Gᵀ
              G            spzeros(p,p) ]
       function solve2x2(r1, r2)
         l = Z\[r1; r2]
@@ -554,10 +554,10 @@ function intpoint(
       # Solve 4x4 system using Block Gaussian Elimination
 
       # First solve the 2x2 saddle point system
-      # ┌                ┐ ┌    ┐   ┌                             ┐
-      # │ Q + A'F²A   G' │ │ Δy │   │ r.y + A'inv(S)(V*r.v + r.s) │
-      # │ G              │ │ Δw │ = │ r.w                         │
-      # └                ┘ └    ┘   └                             ┘
+      # ┌                 ┐ ┌    ┐   ┌                             ┐
+      # │ Q + A'F⁻²A   G' │ │ Δy │   │ r.y + A'inv(S)(V*r.v + r.s) │
+      # │ G               │ │ Δw │ = │ r.w                         │
+      # └                 ┘ └    ┘   └                             ┘
       
       t1  = r.s ÷ λ              # inv(block(λ))*F
       t2  = F⁻¹*(F⁻¹*r.v + t1)   # inv(S)V*r.v + inv(S)*r.s
@@ -579,7 +579,7 @@ function intpoint(
   end
 
   if verbose
-      ξ1()=@printf("\n > INTERIOR POINT SOLVER v0.5 (Jan 2015)\n\n");ξ1()
+      ξ1()=@printf("\n > INTERIOR POINT SOLVER v0.7 (July 2016)\n\n");ξ1()
   end
 
   # ────────────────────────────────────────────────────────────
@@ -692,8 +692,8 @@ function intpoint(
     # ────────────────────────────────────────────────────────────
 
     rDu = norm(r0.y)/(1+norm(c))
-    rPr = norm(r0.v)/(1+norm(b))
-    rCp = norm(r0.s)/(1+abs(c'z.y)[1]); # [1] acts as a cast
+    rPr = normsafe(r0.v)/normsafe(b)
+    rCp = normsafe(r0.s)/(1+abs(c'z.y)[1]); # [1] acts as a cast
 
     if verbose
         ξ3()=@printf(" %6i  %-10.4e  %-10.4e  %-10.4e  %-10.4e  %i\n",
@@ -730,8 +730,8 @@ function intpoint(
 
         # Dual Infeasible
         
-        r_dual_infeas1 = (A*z.y - z.s)[1]/(c'*z.y)[1]
-        r_dual_infeas2 = size(G,1) == 0 ? -Inf : G*z.y
+        r_dual_infeas1 = isempty(A) ? -Inf : (A*z.y - z.s)[1]/vecdot(c,z.y)
+        r_dual_infeas2 = isempty(G) == 0 ? -Inf : G*z.y
 
         if max(r_dual_infeas1, r_dual_infeas2) < optTol
 
