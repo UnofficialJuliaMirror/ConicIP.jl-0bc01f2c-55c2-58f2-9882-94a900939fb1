@@ -242,7 +242,6 @@ function maxstep_soc(x, e::Void)
 
 end
 
-
 function maxstep_sdc(x,d)
 
   # Maximum step to Semidefinite cone
@@ -297,8 +296,6 @@ function dsoc!(y,x, o)
   o[1] = (y1*x1 - vecdot(yb,xb) )/α
   o[2:end] = (-yb*x1 + (α*xb + vecdot(yb,xb)*yb)/y1)/α
 
-#  o[:] = arrinv(y)(x)[:]
-
 end
 
 function xsoc!(x, y, o)
@@ -341,6 +338,24 @@ type Solution
 
 end
 
+"""
+  intpoint(Q, c, A, b, cone_dims, G, d)
+
+Interior point solver for the system
+
+minimize    ½yᵀQy - cᵀy
+s.t         Ay >= b
+            Gy  = d
+
+cone_dims is an array of tuples (Cone Type, Dimension)
+
+e.g. [("R",2),("Q",4)] means
+(y₁, y₂)          in  R+
+(y₃, y₄, y₅, y₆)  in  Q
+
+SDP Cones are NOT supported and purely experimental at this
+point.
+"""
 function intpoint(
 
   # ½xᵀQx - cᵀx
@@ -367,30 +382,11 @@ function intpoint(
   verbose = true,          # Verbose Output
   maxRefinementSteps = 3,  # Maximum number of IR Steps
   maxIters = 100,          # Maximum number of interior iterations
-  cache_nestodd = false     # Set to true if there are many small blocks
+  cache_nestodd = false    # Set to true if there are many small blocks
 
   )
 
-  # ──────────────────────────────────────────────────────────────
-  #
-  # Interior point solver for
-  #
-  # minimize    ½yᵀQy - cᵀy
-  # s.t         Ay >= b
-  #             Gy  = d
-  #
-  # cone_dims is an array of tuples (Cone Type, Dimension)
-  #
-  # e.g. [("R",2),("Q",4)] means
-  # (y₁, y₂)          in  R+
-  # (y₃, y₄, y₅, y₆)  in  Q
-  #
-  # SDP Cones are NOT supported and purely experimental at this
-  # point.
-  #
-  # ──────────────────────────────────────────────────────────────
-
-  # Precompute transposition matrices
+  # Precomputed transposition matrices
   Aᵀ = A'; Gᵀ = G'
 
   n = length(c) # Number of variables
@@ -404,12 +400,12 @@ function intpoint(
 
   # Sanity Checks
   ◂ = nothing
-  m != sum(block_sizes) ? error("Inconsisteny in inequalities") : ◂
+  m != sum(block_sizes) ? error("Inconsistency in inequalities") : ◂
   size(Q,1) != size(Q,2)? error("Q is not square") : ◂
-  size(b,1) != m        ? error("Inconsisteny in inequalities") : ◂
-  size(c,1) != n        ? error("Inconsisteny in inequalities/objective") : ◂
-  size(d,1) != p        ? error("Inconsisteny in equalities") : ◂
-  size(G,2) != n        ? error("Inconsisteny in equalities/objective") : ◂
+  size(b,1) != m        ? error("Inconsistency in inequalities") : ◂
+  size(c,1) != n        ? error("Inconsistency in inequalities/objective") : ◂
+  size(d,1) != p        ? error("Inconsistency in equalities") : ◂
+  size(G,2) != n        ? error("Inconsistency in equalities/objective") : ◂
 
   # Number to scale (z's) by
   # 1 for each R_+ dimension
@@ -422,7 +418,7 @@ function intpoint(
   end
 
   # e = Group identity
-  # Concatinate the vectors
+  # Concatenate the vectors
   # [1, 1, … , 1] for R_+
   # [1, 0, … , 0] for Q
 
