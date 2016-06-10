@@ -382,7 +382,8 @@ function intpoint(
   verbose = true,          # Verbose Output
   maxRefinementSteps = 3,  # Maximum number of IR Steps
   maxIters = 100,          # Maximum number of interior iterations
-  cache_nestodd = false    # Set to true if there are many small blocks
+  cache_nestodd = false,   # Set to true if there are many small blocks
+  refinementThreshold = optTol/1e7 # Accuracy of refinement steps
 
   )
 
@@ -534,11 +535,12 @@ function intpoint(
     if solve2x2gen == nothing
 
       # Default (slow) solver.
-      F⁻² = full(F⁻¹^2)
+      F⁻² = sparse(F⁻¹^2)
       Z  = [ Q + Aᵀ*F⁻²*A  Gᵀ
-             G            spzeros(p,p) ]
+             G             spzeros(p,p) ]
+
       function solve2x2(r1, r2)
-        l = Z\[r1; r2]
+        l = lufact(Z)\[r1; r2]
         return(l[1:n,:], l[n+1:end,:])
       end
 
@@ -675,7 +677,7 @@ function intpoint(
                   A*Δz.y - Δz.s                ,
                   λ∘(F*Δz.v) + λ∘(F⁻¹*Δz.s) )
       rIr = r - r0
-      if norm(rIr)/(n + 2*m) < optTol/1e7; break; end
+      if norm(rIr)/(n + 2*m) < refinementThreshold; break; end
       Δzr = solve(rIr)
       Δz  = Δz + Δzr
     end
@@ -731,7 +733,7 @@ function intpoint(
         # Dual Infeasible
         
         r_dual_infeas1 = isempty(A) ? -Inf : (A*z.y - z.s)[1]/vecdot(c,z.y)
-        r_dual_infeas2 = isempty(G) == 0 ? -Inf : G*z.y
+        r_dual_infeas2 = isempty(G) ? -Inf : norm(G*z.y - d)
 
         if max(r_dual_infeas1, r_dual_infeas2) < optTol
 
