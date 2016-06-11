@@ -321,6 +321,98 @@ function xsdc!(x, y, o)
 end
 
 # ──────────────────────────────────────────────────────────────
+#  KKT Solvers
+# ──────────────────────────────────────────────────────────────
+
+"""
+Solves the 3x3 system
+
+┌             ┐ ┌    ┐   ┌   ┐
+│ Q   G'  -A' │ │ y' │ = │ y │
+│ G           │ │ w' │   │ w │ 
+│ A        F² │ │ v' │   │ v │
+└             ┘ └    ┘   └   ┘
+"""
+function solve3x3gen_sparse(F, Q, A, G)
+
+  n = size(Q,1) # Number of variables
+  m = size(A,1) # Number of inequality constraints
+  p = size(G,1) # Number of equality constraints
+
+  F² = sparse(F^2)
+
+  Z = [ Q        G'            -A' 
+        G        spzeros(p,p)   spzeros(p,m)
+        A        spzeros(m,p)   F²            ]
+
+  Z = lufact(Z)
+  function solve3x3(Δy, Δw, Δv)
+
+    z = Z\[Δy; Δw; Δv]
+    return (z[1:n,:], z[n+1:n+p,:], z[n+p+1:end,:])
+
+  end
+
+  return solve3x3
+
+end
+
+
+"""
+Solves the 2x2 system
+
+┌                ┐ ┌    ┐   ┌   ┐
+│ Q + A'F⁻²A  G' │ │ y' │ = │ y │
+│ G              │ │ w' │   │ w │ 
+└                ┘ └    ┘   └   ┘
+"""
+function solve2x2gen(F, Q, A, G)
+
+  n = size(Q,1) # Number of variables
+  m = size(A,1) # Number of inequality constraints
+  p = size(G,1) # Number of equality constraints
+
+  F⁻² = sparse(inv(F^2))
+
+  Z = [ Q + A'*F⁻²*A   G'            
+        G              spzeros(p,p) ]
+
+  Z = lufact(Z)
+
+  function solve2x2(Δy, Δw)
+
+    z = Z\[Δy; Δw]
+    return (z[1:n,:], z[n+1:end,:])
+
+  end
+
+  return solve2x2
+
+end
+
+"""
+Wrapper around solve2xegen to solve 3x3 systems by pivoting
+on the third component.
+"""
+function pivot3(solve2x2gen, F, Q, A, G)
+
+  solve2x2 = solve2x2gen(F, Q, A, G)
+  F⁻¹ = inv(F)
+  
+  function solve3x3(y, w, v)
+
+    (Δy, Δw) = solve2x2(y + A'*(F⁻¹*(F⁻¹*v)), w)
+    Δv       = F⁻¹*F⁻¹*(v - A*Δy)
+
+    return(Δy, Δw, Δv)
+
+  end
+
+end
+
+pivot3gen(solve2x2gen) = (F,Q,A,G) -> pivot3(solve2x2gen,F,Q,A,G)
+
+# ──────────────────────────────────────────────────────────────
 #  Interior Point
 # ──────────────────────────────────────────────────────────────
 
@@ -375,7 +467,7 @@ function intpoint(
   # │ Q + AᵀF²A   G' │ │ y │ = │ a │
   # │ G              │ │ x │   │ b │
   # └                ┘ └   ┘   └   ┘
-  solve2x2gen = nothing,
+  solve3x3gen = solve3x3gen_sparse,
 
   optTol = 1e-5,           # Optimal Tolerance
   DTB = 0.01,              # Distance to Boundary
@@ -513,7 +605,74 @@ function intpoint(
 
   end
 
-  function solve4x4gen(λ, F, F⁻¹, solve2x2gen = solve2x2gen)
+  # function solve4x4gen(λ, F, F⁻¹, solve2x2gen = solve2x2gen)
+
+  #   #
+  #   # solve4x4gen(λ, F)(r) solves the 4x4 KKT System
+  #   # ┌                  ┐ ┌    ┐   ┌     ┐
+  #   # │ Q   G'  -A'      │ │ Δy │ = │ r.y │
+  #   # │ G                │ │ Δw │   │ r.w │ S = block(λ)*F
+  #   # │ A             -I │ │ Δv │   │ r.v │ V = block(λ)*inv(F)
+  #   # │           S    V │ │ Δs │   │ r.s │
+  #   # └                  ┘ └    ┘   └     ┘
+  #   # F = Nesterov-Todd scaling matrix
+  #   #
+  #   # using block gaussian elimination
+  #   #
+  #   # e.g (r is a v4x1)
+  #   # F = nt_scaling(r.v, r.s); λ = F*r.v
+  #   # solve4x4gen(λ, F)(r)
+  #   #
+
+  #   if solve2x2gen == nothing
+
+  #     # Default (slow) solver.
+  #     F⁻² = sparse(F⁻¹^2)
+  #     Z  = [ Q + Aᵀ*F⁻²*A  Gᵀ
+  #            G             spzeros(p,p) ]
+
+  #     function solve2x2(r1, r2)
+  #       l = lufact(Z)\[r1; r2]
+  #       return(l[1:n,:], l[n+1:end,:])
+  #     end
+
+  #   else
+    
+  #     # Otherwise, create cache from L
+  #     solve2x2 = solve2x2gen(F)
+    
+  #   end
+
+  #   function solve4x4(r)
+
+  #     # Solve 4x4 system using Block Gaussian Elimination
+
+  #     # First solve the 2x2 saddle point system
+  #     # ┌                 ┐ ┌    ┐   ┌                             ┐
+  #     # │ Q + A'F⁻²A   G' │ │ Δy │   │ r.y + A'inv(S)(V*r.v + r.s) │
+  #     # │ G               │ │ Δw │ = │ r.w                         │
+  #     # └                 ┘ └    ┘   └                             ┘
+      
+  #     t1  = r.s ÷ λ              # inv(block(λ))*F
+  #     t2  = F⁻¹*(F⁻¹*r.v + t1)   # inv(S)V*r.v + inv(S)*r.s
+  #     (Δy, Δw)  = solve2x2(r.y + Aᵀ*t2, r.w)
+
+  #     # Δv = inv(S)*(V r.v + r.s - AVΔy)
+  #     axpy!(-1.,F⁻¹*(F⁻¹*(A*Δy)), t2) # t2 = Δv
+
+  #     # Δs = inv(V)*(r.s - SΔv)
+  #     axpy!(-1.,F*t2, t1)
+  #     Δs  = F*t1
+
+  #     return v4x1(Δy,Δw,t2,Δs)
+
+  #   end
+
+  #   return solve4x4
+
+  # end
+
+  function solve4x4gen(λ, F, F⁻¹, solve3x3gen = solve3x3gen)
 
     #
     # solve4x4gen(λ, F)(r) solves the 4x4 KKT System
@@ -521,62 +680,21 @@ function intpoint(
     # │ Q   G'  -A'      │ │ Δy │ = │ r.y │
     # │ G                │ │ Δw │   │ r.w │ S = block(λ)*F
     # │ A             -I │ │ Δv │   │ r.v │ V = block(λ)*inv(F)
-    # │           S    V │ │ Δs │   │ r.s │
+    # │          S     V │ │ Δs │   │ r.s │
     # └                  ┘ └    ┘   └     ┘
     # F = Nesterov-Todd scaling matrix
     #
-    # using block gaussian elimination
-    #
-    # e.g (r is a v4x1)
-    # F = nt_scaling(r.v, r.s); λ = F*r.v
-    # solve4x4gen(λ, F)(r)
-    #
 
-    if solve2x2gen == nothing
-
-      # Default (slow) solver.
-      F⁻² = sparse(F⁻¹^2)
-      Z  = [ Q + Aᵀ*F⁻²*A  Gᵀ
-             G             spzeros(p,p) ]
-
-      function solve2x2(r1, r2)
-        l = lufact(Z)\[r1; r2]
-        return(l[1:n,:], l[n+1:end,:])
-      end
-
-    else
-    
-      # Otherwise, create cache from L
-      solve2x2 = solve2x2gen(F)
-    
-    end
+    solve3x3 = solve3x3gen(F, Q, A, G)
 
     function solve4x4(r)
-
-      # Solve 4x4 system using Block Gaussian Elimination
-
-      # First solve the 2x2 saddle point system
-      # ┌                 ┐ ┌    ┐   ┌                             ┐
-      # │ Q + A'F⁻²A   G' │ │ Δy │   │ r.y + A'inv(S)(V*r.v + r.s) │
-      # │ G               │ │ Δw │ = │ r.w                         │
-      # └                 ┘ └    ┘   └                             ┘
       
-      t1  = r.s ÷ λ              # inv(block(λ))*F
-      t2  = F⁻¹*(F⁻¹*r.v + t1)   # inv(S)V*r.v + inv(S)*r.s
-      (Δy, Δw)  = solve2x2(r.y + Aᵀ*t2, r.w)
-
-      # Δv = inv(S)*(V r.v + r.s - AVΔy)
-      axpy!(-1.,F⁻¹*(F⁻¹*(A*Δy)), t2) # t2 = Δv
-
-      # Δs = inv(V)*(r.s - SΔv)
-      axpy!(-1.,F*t2, t1)
-      Δs  = F*t1
-
-      return v4x1(Δy,Δw,t2,Δs)
+      V⁻¹s = F*(r.s ÷ λ) 
+      (Δy, Δw, Δv)  = solve3x3(r.y, r.w, r.v + V⁻¹s)
+      Δs = V⁻¹s - F*(F*Δv'')
+      return v4x1(Δy'',Δw'',Δv'',Δs'')
 
     end
-
-    return solve4x4
 
   end
 
@@ -677,7 +795,11 @@ function intpoint(
                   A*Δz.y - Δz.s                ,
                   λ∘(F*Δz.v) + λ∘(F⁻¹*Δz.s) )
       rIr = r - r0
-      if norm(rIr)/(n + 2*m) < refinementThreshold; break; end
+      rnorm = norm(rIr)/(n + 2*m)
+      if rnorm > 0.1
+        verbose ? warn("4x4 solve failed, residual norm $(rnorm)") : ◂
+      end
+      if rnorm < refinementThreshold; break; end
       Δzr = solve(rIr)
       Δz  = Δz + Δzr
     end
