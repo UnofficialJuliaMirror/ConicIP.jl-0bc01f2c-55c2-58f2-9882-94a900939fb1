@@ -42,7 +42,7 @@ facts("LBFGS module") do
     b = -ones(2*n,1); k = size(A,1);
     ∇f = x -> H*(x - c);
 
-    function solve2x2gen(F)
+    function solve2x2gen(F, Q, A, G)
       v = inv(F[1]*F[1]).diag
       D = Diagonal(v[1:n] + v[n+1:end])
       invHD = inv(IntPoint.Diag(H.diag + D.diag));
@@ -50,7 +50,7 @@ facts("LBFGS module") do
     end
 
     sol = intpoint(H,H*c,A,b,[("R",2*n)],
-                   solve2x2gen = solve2x2gen,
+                   solve3x3gen = IntPoint.pivot3gen(solve2x2gen),
                    optTol = optTol,
                    DTB = 0.01,
                    maxRefinementSteps = 3);

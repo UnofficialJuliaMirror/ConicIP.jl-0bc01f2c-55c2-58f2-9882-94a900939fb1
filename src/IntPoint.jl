@@ -340,6 +340,9 @@ function solve3x3gen_sparse(F, Q, A, G)
   p = size(G,1) # Number of equality constraints
 
   F² = sparse(F^2)
+  Q  = sparse(Q)
+  A  = sparse(A)
+  G  = sparse(G)
 
   Z = [ Q        G'            -A' 
         G        spzeros(p,p)   spzeros(p,m)
