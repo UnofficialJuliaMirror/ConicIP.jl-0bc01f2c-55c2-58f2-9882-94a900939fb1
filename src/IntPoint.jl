@@ -634,10 +634,10 @@ function intpoint(
 
     function solve4x4(r)
       
-      V⁻¹s = F*(r.s ÷ λ) 
-      (Δy, Δw, Δv)  = solve3x3(r.y, r.w, r.v + V⁻¹s)
-      Δs = V⁻¹s - F*(F*Δv)
-      return v4x1(Δy,Δw,Δv,Δs)
+      t1 = F*(r.s ÷ λ) 
+      (Δy, Δw, Δv)  = solve3x3(r.y, r.w, r.v + t1)
+      axpy!(-1, F*(F*Δv), t1) # > Δs = t1 - F*(F*Δv)
+      return v4x1(Δy,Δw,Δv,t1)
 
     end
 
