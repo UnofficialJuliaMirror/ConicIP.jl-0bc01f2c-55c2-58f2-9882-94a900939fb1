@@ -2,8 +2,7 @@ isdefined(Base, :__precompile__) && __precompile__()
 
 module IntPoint
 
-export Id, intpoint, l1norm, l1ball, l2norm, tvnorm1d, prox,
-       Diag, partialInv
+export Id, Diag, intpoint, pivot3gen
 
 import Base:+,*,-,\,^
 using Base.LinAlg.BLAS:axpy!,scal!
@@ -333,14 +332,14 @@ Solves the 3x3 system
 │ A        F² │ │ v' │   │ v │
 └             ┘ └    ┘   └   ┘
 """
-function solve3x3gen_sparse(F, Q, A, G)
+function solve3x3gen_sparse(F, F⁻¹, Q, A, G)
 
   n = size(Q,1) # Number of variables
   m = size(A,1) # Number of inequality constraints
   p = size(G,1) # Number of equality constraints
 
   F² = sparse(F^2)
-  Q  = sparse(Q)
+  Q  = sparse(Q) # TODO: remove the need for this
   A  = sparse(A)
   G  = sparse(G)
 
@@ -348,10 +347,11 @@ function solve3x3gen_sparse(F, Q, A, G)
         G        spzeros(p,p)   spzeros(p,m)
         A        spzeros(m,p)   F²            ]
 
-  Z = lufact(Z)
+  ZZ = lufact(Z)
+
   function solve3x3(Δy, Δw, Δv)
 
-    z = Z\[Δy; Δw; Δv]
+    z = ZZ\[Δy; Δw; Δv]
     return (z[1:n,:], z[n+1:n+p,:], z[n+p+1:end,:])
 
   end
@@ -359,7 +359,6 @@ function solve3x3gen_sparse(F, Q, A, G)
   return solve3x3
 
 end
-
 
 """
 Solves the 2x2 system
@@ -369,13 +368,13 @@ Solves the 2x2 system
 │ G              │ │ w' │   │ w │ 
 └                ┘ └    ┘   └   ┘
 """
-function solve2x2gen(F, Q, A, G)
+function solve2x2gen(F, F⁻¹, Q, A, G)
 
   n = size(Q,1) # Number of variables
   m = size(A,1) # Number of inequality constraints
   p = size(G,1) # Number of equality constraints
 
-  F⁻² = sparse(inv(F^2))
+  F⁻² = sparse(inv(F^2)) # TODO: Think about how it might help to pass in F^-1 
 
   Z = [ Q + A'*F⁻²*A   G'            
         G              spzeros(p,p) ]
@@ -397,10 +396,9 @@ end
 Wrapper around solve2xegen to solve 3x3 systems by pivoting
 on the third component.
 """
-function pivot3(solve2x2gen, F, Q, A, G)
+function pivot3(solve2x2gen, F, F⁻¹, Q, A, G)
 
-  solve2x2 = solve2x2gen(F, Q, A, G)
-  F⁻¹ = inv(F)
+  solve2x2 = solve2x2gen(F, F⁻¹, Q, A, G)
   
   function solve3x3(y, w, v)
 
@@ -413,7 +411,7 @@ function pivot3(solve2x2gen, F, Q, A, G)
 
 end
 
-pivot3gen(solve2x2gen) = (F,Q,A,G) -> pivot3(solve2x2gen,F,Q,A,G)
+pivot3gen(solve2x2gen) = (F,F⁻¹,Q,A,G) -> pivot3(solve2x2gen,F,F⁻¹,Q,A,G)
 
 # ──────────────────────────────────────────────────────────────
 #  Interior Point
@@ -424,7 +422,7 @@ type Solution
   y      :: Matrix  # primal
   w      :: Matrix  # dual (linear equality)
   v      :: Matrix  # dual (linear inequality)
-  status :: Symbol  # :success, :error
+  status :: Symbol  # :Optimal, :Infeasible
   Iter   :: Integer # number of iterations
   Mu     :: Real    # optimality conditions
   prFeas :: Real
@@ -464,11 +462,22 @@ function intpoint(
 
   # Solver Parameters
 
-  # L = solve2x2gen(F)
-  # L(y,x) solves the system
+  # L = solve3x3gen(F,Q,A,G)
+  # L(a,b,c) solves the system
+  # ┌             ┐ ┌   ┐   ┌   ┐
+  # │ Q   G'  -A' │ │ a │ = │ y │
+  # │ G           │ │ b │   │ w │ 
+  # │ A        F² │ │ c │   │ v │
+  # └             ┘ └   ┘   └   ┘  
+  #
+  # We can also wrap a 2x2 solver using pivot3gen(solve2x2gen)
+  # The 2x2 solves the system
+  # 
+  # L = solve2x2gen(F,Q,A,G)
+  # L(a,b) solves
   # ┌                ┐ ┌   ┐   ┌   ┐
-  # │ Q + AᵀF²A   G' │ │ y │ = │ a │
-  # │ G              │ │ x │   │ b │
+  # │ Q + AᵀF²A   G' │ │ a │ = │ y │
+  # │ G              │ │ b │   │ w │
   # └                ┘ └   ┘   └   ┘
   solve3x3gen = solve3x3gen_sparse,
 
@@ -608,73 +617,6 @@ function intpoint(
 
   end
 
-  # function solve4x4gen(λ, F, F⁻¹, solve2x2gen = solve2x2gen)
-
-  #   #
-  #   # solve4x4gen(λ, F)(r) solves the 4x4 KKT System
-  #   # ┌                  ┐ ┌    ┐   ┌     ┐
-  #   # │ Q   G'  -A'      │ │ Δy │ = │ r.y │
-  #   # │ G                │ │ Δw │   │ r.w │ S = block(λ)*F
-  #   # │ A             -I │ │ Δv │   │ r.v │ V = block(λ)*inv(F)
-  #   # │           S    V │ │ Δs │   │ r.s │
-  #   # └                  ┘ └    ┘   └     ┘
-  #   # F = Nesterov-Todd scaling matrix
-  #   #
-  #   # using block gaussian elimination
-  #   #
-  #   # e.g (r is a v4x1)
-  #   # F = nt_scaling(r.v, r.s); λ = F*r.v
-  #   # solve4x4gen(λ, F)(r)
-  #   #
-
-  #   if solve2x2gen == nothing
-
-  #     # Default (slow) solver.
-  #     F⁻² = sparse(F⁻¹^2)
-  #     Z  = [ Q + Aᵀ*F⁻²*A  Gᵀ
-  #            G             spzeros(p,p) ]
-
-  #     function solve2x2(r1, r2)
-  #       l = lufact(Z)\[r1; r2]
-  #       return(l[1:n,:], l[n+1:end,:])
-  #     end
-
-  #   else
-    
-  #     # Otherwise, create cache from L
-  #     solve2x2 = solve2x2gen(F)
-    
-  #   end
-
-  #   function solve4x4(r)
-
-  #     # Solve 4x4 system using Block Gaussian Elimination
-
-  #     # First solve the 2x2 saddle point system
-  #     # ┌                 ┐ ┌    ┐   ┌                             ┐
-  #     # │ Q + A'F⁻²A   G' │ │ Δy │   │ r.y + A'inv(S)(V*r.v + r.s) │
-  #     # │ G               │ │ Δw │ = │ r.w                         │
-  #     # └                 ┘ └    ┘   └                             ┘
-      
-  #     t1  = r.s ÷ λ              # inv(block(λ))*F
-  #     t2  = F⁻¹*(F⁻¹*r.v + t1)   # inv(S)V*r.v + inv(S)*r.s
-  #     (Δy, Δw)  = solve2x2(r.y + Aᵀ*t2, r.w)
-
-  #     # Δv = inv(S)*(V r.v + r.s - AVΔy)
-  #     axpy!(-1.,F⁻¹*(F⁻¹*(A*Δy)), t2) # t2 = Δv
-
-  #     # Δs = inv(V)*(r.s - SΔv)
-  #     axpy!(-1.,F*t2, t1)
-  #     Δs  = F*t1
-
-  #     return v4x1(Δy,Δw,t2,Δs)
-
-  #   end
-
-  #   return solve4x4
-
-  # end
-
   function solve4x4gen(λ, F, F⁻¹, solve3x3gen = solve3x3gen)
 
     #
@@ -688,14 +630,14 @@ function intpoint(
     # F = Nesterov-Todd scaling matrix
     #
 
-    solve3x3 = solve3x3gen(F, Q, A, G)
+    solve3x3 = solve3x3gen(F, F⁻¹, Q, A, G)
 
     function solve4x4(r)
       
       V⁻¹s = F*(r.s ÷ λ) 
       (Δy, Δw, Δv)  = solve3x3(r.y, r.w, r.v + V⁻¹s)
-      Δs = V⁻¹s - F*(F*Δv'')
-      return v4x1(Δy'',Δw'',Δv'',Δs'')
+      Δs = V⁻¹s - F*(F*Δv)
+      return v4x1(Δy,Δw,Δv,Δs)
 
     end
 
@@ -833,7 +775,7 @@ function intpoint(
             ξ4()=@printf("\n > EXIT -- Below Tolerance!\n\n");ξ4()
         end
         return Solution(z.y, z.w, z.v, 
-                        :success, Iter, μ[1], rDu, rPr, rCp)
+                        :Optimal, Iter, μ[1], rDu, rPr, rCp)
     end
 
     # ────────────────────────────────────────────────────────────
@@ -851,7 +793,7 @@ function intpoint(
             ξ5()=@printf("\n > EXIT -- Infeasible!\n\n");ξ5()
           end
           return Solution(z.y, z.w, z.v, 
-                          :infeasible, Iter, μ[1], rDu, rPr, rCp)
+                          :Infeasible, Iter, μ[1], rDu, rPr, rCp)
 
         end 
 
@@ -866,7 +808,7 @@ function intpoint(
             ξ6()=@printf("\n > EXIT -- Dual Infeasible!\n\n");ξ6()
           end
           return Solution(z.y, z.w, z.v, 
-                          :dualinfeasible, Iter, μ[1], rDu, rPr, rCp)
+                          :DualInfeasible, Iter, μ[1], rDu, rPr, rCp)
 
         end
 
@@ -876,14 +818,14 @@ function intpoint(
             ξ7()=@printf("\n > EXIT -- Error!\n\n");ξ7()
         end
         return Solution(z.y, z.w, z.v, 
-                        :error, Iter, μ[1], rDu, rPr, rCp)
+                        :Error, Iter, μ[1], rDu, rPr, rCp)
 
     end
 
   end
 
   return Solution(z.y, z.w, z.v, 
-                  :abandoned, Iter, μ[1], rDu, rPr, rCp)
+                  :Abandoned, Iter, μ[1], rDu, rPr, rCp)
 
 
 end

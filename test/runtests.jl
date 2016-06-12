@@ -42,7 +42,7 @@ facts("LBFGS module") do
     b = -ones(2*n,1); k = size(A,1);
     ∇f = x -> H*(x - c);
 
-    function solve2x2gen(F, Q, A, G)
+    function solve2x2gen(F, F⁻¹, Q, A, G)
       v = inv(F[1]*F[1]).diag
       D = Diagonal(v[1:n] + v[n+1:end])
       invHD = inv(IntPoint.Diag(H.diag + D.diag));
@@ -50,7 +50,7 @@ facts("LBFGS module") do
     end
 
     sol = intpoint(H,H*c,A,b,[("R",2*n)],
-                   solve3x3gen = IntPoint.pivot3gen(solve2x2gen),
+                   solve3x3gen = pivot3gen(solve2x2gen),
                    optTol = optTol,
                    DTB = 0.01,
                    maxRefinementSteps = 3);
@@ -62,7 +62,7 @@ facts("LBFGS module") do
     # These tests are a bit paranoid, but they make sure the solver doesn't
     # get changed in subtle ways which affects convergence.
 
-    s = Dict(:status => :success,
+    s = Dict(:status => :Optimal,
              :rDu => 2.3279184881643e-16,
              :μ => 0.0014841398479756253,
              :rCp => 3.5147719126896054e-7,
@@ -100,7 +100,7 @@ facts("LBFGS module") do
     # These tests are a bit paranoid, but they make sure the solver doesn't
     # get changed in subtle ways which affects convergence.
 
-    s = Dict(:status =>:success,
+    s = Dict(:status =>:Optimal,
              :rDu => 0.0,
              :μ => 2.866608128093695e-7,
              :rCp => 1.621702501927476e-7,
@@ -140,7 +140,7 @@ facts("LBFGS module") do
     # These tests are a bit paranoid, but they make sure the solver doesn't
     # get changed in subtle ways which affects convergence.
 
-    s = Dict(:status => :success,
+    s = Dict(:status => :Optimal,
              :rDu => 7.764421906286858e-17,
              :μ => 4.663886012743681e-7,
              :rCp => 1.7037397157416066e-7,
@@ -178,7 +178,7 @@ facts("LBFGS module") do
     # These tests are a bit paranoid, but they make sure the solver doesn't
     # get changed in subtle ways which affects convergence.
 
-    s = Dict(:status => :success,
+    s = Dict(:status => :Optimal,
              :rDu => 1.4506364239112378e-16,
              :μ => 2.7686402945528533e-9,
              :rCp => 2.897827518851058e-9,
@@ -209,7 +209,7 @@ facts("LBFGS module") do
 
     ystar = sol.y
 
-    s = Dict(:status => :success,
+    s = Dict(:status => :Optimal,
              :rDu => 4.488229069360946e-16,
              :μ => 2.1436595135398927e-8,
              :rCp => 3.000777220457259e-9,
@@ -284,7 +284,7 @@ facts("LBFGS module") do
                            A,b,[("R",2*n)],
                            optTol = optTol/100);
 
-    @fact sol.status --> :infeasible
+    @fact sol.status --> :Infeasible
 
   end
 
@@ -307,7 +307,7 @@ facts("LBFGS module") do
                            G,d,
                            optTol = optTol/100);
 
-    @fact sol.status --> :infeasible
+    @fact sol.status --> :Infeasible
 
   end  
 
@@ -324,7 +324,7 @@ facts("LBFGS module") do
                             A,b,[("R",n)],
                             optTol = optTol/100)
 
-    @fact sol.status --> :dualinfeasible
+    @fact sol.status --> :DualInfeasible
 
   end
 
