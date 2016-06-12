@@ -671,6 +671,9 @@ function intpoint(
   #  Iterate Loop
   # ────────────────────────────────────────────────────────────
 
+  sol     = Solution(z.y, z.w, z.v, :Error, 0, 0, Inf, Inf, Inf)
+  optBest = Inf
+  
   for Iter = 1:maxIters
 
     F    = nt_scaling(z.v, z.s)   # Nesterov-Todd Scaling Matrix
@@ -764,18 +767,26 @@ function intpoint(
     rPr = normsafe(r0.v)/(1 + normsafe(b))
     rCp = normsafe(r0.s)/(1+abs(c'z.y)[1]); # [1] acts as a cast
 
-    if verbose
-        ξ3()=@printf(" %6i  %-10.4e  %-10.4e  %-10.4e  %-10.4e  %i\n",
-                    Iter, μ[1], rDu, rPr, rCp, rStep);ξ3()
+    if max(rDu, rPr, rCp) < optBest
+      sol.y[:] = z.y; sol.w[:] = z.w; sol.v[:] = z.v
+      sol.Iter = Iter; sol.Mu = μ[1]; 
+      sol.duFeas = rDu; sol.prFeas = rPr; sol.muFeas = rCp
+      optBest = max(rDu, rPr, rCp)
     end
 
+    if verbose
+
+        warnstr = max(rDu, rPr, rCp) == optBest ? "*" : " "        
+        ξ3()=@printf(" %5i%s  %-10.4e  %-10.4e  %-10.4e  %-10.4e  %i\n",
+                    Iter, warnstr,μ[1], rDu, rPr, rCp, rStep);ξ3()
+    end    
 
     if max(rDu, rPr, rCp) < optTol
         if verbose
             ξ4()=@printf("\n > EXIT -- Below Tolerance!\n\n");ξ4()
         end
-        return Solution(z.y, z.w, z.v, 
-                        :Optimal, Iter, μ[1], rDu, rPr, rCp)
+        sol.status = :Optimal
+        return sol
     end
 
     # ────────────────────────────────────────────────────────────
@@ -792,8 +803,8 @@ function intpoint(
           if verbose;
             ξ5()=@printf("\n > EXIT -- Infeasible!\n\n");ξ5()
           end
-          return Solution(z.y, z.w, z.v, 
-                          :Infeasible, Iter, μ[1], rDu, rPr, rCp)
+          sol.status = :Infeasible
+          return sol
 
         end 
 
@@ -807,8 +818,8 @@ function intpoint(
           if verbose;
             ξ6()=@printf("\n > EXIT -- Dual Infeasible!\n\n");ξ6()
           end
-          return Solution(z.y, z.w, z.v, 
-                          :DualInfeasible, Iter, μ[1], rDu, rPr, rCp)
+          sol.status = :DualInfeasible
+          return sol
 
         end
 
@@ -817,16 +828,15 @@ function intpoint(
         if verbose
             ξ7()=@printf("\n > EXIT -- Error!\n\n");ξ7()
         end
-        return Solution(z.y, z.w, z.v, 
-                        :Error, Iter, μ[1], rDu, rPr, rCp)
+        sol.status = :Error
+        return sol
 
     end
 
   end
 
-  return Solution(z.y, z.w, z.v, 
-                  :Abandoned, Iter, μ[1], rDu, rPr, rCp)
-
+  sol.status = :Abandoned
+  return sol
 
 end
 
