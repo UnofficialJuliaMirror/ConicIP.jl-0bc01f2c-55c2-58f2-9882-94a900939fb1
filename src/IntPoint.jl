@@ -644,7 +644,7 @@ function intpoint(
   end
 
   if verbose
-      ξ1()=@printf("\n > INTERIOR POINT SOLVER v0.7 (July 2016)\n\n");ξ1()
+      print("\n > INTERIOR POINT SOLVER v0.7 (July 2016)\n\n")
   end
 
   # ────────────────────────────────────────────────────────────
@@ -663,8 +663,8 @@ function intpoint(
   z.s = z.s - α_s*e
 
   if verbose
-      ξ2()=@printf(" %-6s  %-10s  %-10s  %-10s  %-10s  %-10s\n",
-                  "  Iter","Mu","prFeas","duFeas","muFeas","refine");ξ2()
+      ξ1()=@printf(" %-6s  %-10s  %-10s  %-10s  %-10s  %-10s\n",
+                  "  Iter","Mu","prFeas","duFeas","muFeas","refine");ξ1()
   end
 
   # ────────────────────────────────────────────────────────────
@@ -775,15 +775,13 @@ function intpoint(
     end
 
     if verbose
-
-        warnstr = max(rDu, rPr, rCp) == optBest ? "*" : " "        
-        ξ3()=@printf(" %5i%s  %-10.4e  %-10.4e  %-10.4e  %-10.4e  %i\n",
-                    Iter, warnstr,μ[1], rDu, rPr, rCp, rStep);ξ3()
+        ξ2()=@printf(" %6i  %-10.4e  %-10.4e  %-10.4e  %-10.4e  %i\n",
+                    Iter, μ[1], rDu, rPr, rCp, rStep);ξ2()
     end    
 
     if max(rDu, rPr, rCp) < optTol
         if verbose
-            ξ4()=@printf("\n > EXIT -- Below Tolerance!\n\n");ξ4()
+            print("\n > EXIT -- Below Tolerance!\n\n")
         end
         sol.status = :Optimal
         return sol
@@ -801,7 +799,7 @@ function intpoint(
         if r_infeas/(1+norm(c)) < optTol
 
           if verbose;
-            ξ5()=@printf("\n > EXIT -- Infeasible!\n\n");ξ5()
+            print("\n > EXIT -- Infeasible!\n\n")
           end
           sol.status = :Infeasible
           return sol
@@ -816,7 +814,7 @@ function intpoint(
         if max(r_dual_infeas1, r_dual_infeas2) < optTol
 
           if verbose;
-            ξ6()=@printf("\n > EXIT -- Dual Infeasible!\n\n");ξ6()
+            print("\n > EXIT -- Dual Infeasible!\n\n")
           end
           sol.status = :DualInfeasible
           return sol
@@ -826,7 +824,7 @@ function intpoint(
         # Cause of Divergence Unknown
         
         if verbose
-            ξ7()=@printf("\n > EXIT -- Error!\n\n");ξ7()
+            print("\n > EXIT -- Error!\n\n")
         end
         sol.status = :Error
         return sol
