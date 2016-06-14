@@ -332,7 +332,7 @@ Solves the 3x3 system
 │ A        F² │ │ v' │   │ v │
 └             ┘ └    ┘   └   ┘
 """
-function solve3x3gen_sparse(F, F⁻¹, Q, A, G)
+function solve3x3gen_sparse_dense(F, F⁻¹, Q, A, G)
 
   n = size(Q,1) # Number of variables
   m = size(A,1) # Number of inequality constraints
@@ -358,6 +358,120 @@ function solve3x3gen_sparse(F, F⁻¹, Q, A, G)
 
   return solve3x3
 
+end
+
+function lift(F::Block)
+
+  d = zeros(0)
+
+  IA, JA, VA = Int[], Int[], Float64[]
+  IB, JB, VB = Int[], Int[], Float64[]
+  ID, JD, VD = Int[], Int[], Float64[]
+
+  n = BlockMatrices.block_idx(F)[end][end]
+  Ir = 0   # Index of top right coordinate for expansion
+
+  for (In,Blk) = zip(BlockMatrices.block_idx(F), F.Blocks)
+
+    if isa(Blk, SymWoodbury)
+
+      for i = 1:length(Blk.A.diag)
+        push!(IA,In[i]); push!(JA,In[i]); push!(VA,Blk.A.diag[i])
+      end
+
+      for i = 1:size(Blk.B,1), j = 1:size(Blk.B,2)
+        push!(IB,In[i]); push!(JB,Ir+j); push!(VB,Blk.B[i,j])
+      end
+
+      for i = 1:size(Blk.D,1), j = 1:size(Blk.D,2)
+        if Blk.D[i,j] != 0
+          push!(ID,Ir+i); push!(JD,Ir+j); push!(VD,-1/Blk.D[i,j])
+        end
+      end
+
+      Ir = Ir + size(Blk.B,2)
+
+    end
+
+    if isa(Blk, Diag)
+
+      for i = 1:length(Blk.diag)
+        push!(IA, In[i]); push!(JA, In[i]); push!(VA, Blk.diag[i])
+      end
+
+    end
+
+  end
+  return (sparse(IA,JA,VA), sparse(IB,JB,VB,n,Ir), sparse(ID,JD,VD));
+
+end
+
+function solve3x3gen_sparse_lift(F, F⁻¹, Q, A, G)
+
+  n = size(Q,1) # Number of variables
+  m = size(A,1) # Number of inequality constraints
+  p = size(G,1) # Number of equality constraints
+
+  (F²A, F²B, invF²D) = lift(F^2)
+
+  F² = sparse(F^2)
+  Q  = sparse(Q) # TODO: remove the need for this
+  A  = sparse(A)
+  G  = sparse(G)
+  r  = size(invF²D,1)
+
+  Z = [ Q             G'            -A'            spzeros(n,r)
+        G             spzeros(p,p)   spzeros(p,m)  spzeros(p,r)
+        A             spzeros(m,p)   F²A           F²B                         
+        spzeros(r,n)  spzeros(r,p)   F²B'          invF²D        ]
+
+  ZZ = lufact(Z)
+
+  function solve3x3(Δy, Δw, Δv)
+
+    z = ZZ\[Δy; Δw; Δv; zeros(r,1)]
+    return (z[1:n,:], z[n+1:n+p,:], z[(n+p+1):(n+m+p),:])
+
+  end
+
+  return solve3x3
+
+end
+
+function solve3x3gen_sparse(F, F⁻¹, Q, A, G)
+
+  function count_lift(F)
+    n = 0
+    for Blk = F.Blocks
+      if isa(Blk, SymWoodbury)
+        n = n + size(Blk,1) + 2*length(Blk.B) + 3
+      end
+      if isa(Blk, Diag)
+        n = n + size(Blk,1)
+      end
+    end
+    return n
+  end
+
+
+  function count_dense(F)
+    n = 0
+    for Blk = F.Blocks
+      if isa(Blk, SymWoodbury)
+        n = n + size(Blk,1)^2
+      end
+      if isa(Blk, Diag)
+        n = n + size(Blk,1)
+      end
+    end
+    return n
+  end
+
+  if count_lift(F) < count_dense(F)
+    return solve3x3gen_sparse_lift(F, F⁻¹, Q, A, G)
+  else 
+    return solve3x3gen_sparse_dense(F, F⁻¹, Q, A, G)
+  end    
 end
 
 """
@@ -398,14 +512,16 @@ on the third component.
 """
 function pivot3(solve2x2gen, F, F⁻¹, Q, A, G)
 
+  F⁻² = F⁻¹*F⁻¹
   solve2x2 = solve2x2gen(F, F⁻¹, Q, A, G)
-  
+
   function solve3x3(y, w, v)
 
-    (Δy, Δw) = solve2x2(y + A'*(F⁻¹*(F⁻¹*v)), w)
-    Δv       = F⁻¹*F⁻¹*(v - A*Δy)
+    t1 = F⁻²*v
+    (Δy, Δw) = solve2x2(y + A'*t1, w)
+    axpy!(-1, F⁻²*(A*Δy), t1)  # Δv = F⁻²*(v - A*Δy)
 
-    return(Δy, Δw, Δv)
+    return(Δy, Δw, t1)
 
   end
 
