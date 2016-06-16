@@ -50,7 +50,7 @@ facts("LBFGS module") do
     end
 
     sol = intpoint(H,H*c,A,b,[("R",2*n)],
-                   solve3x3gen = pivot3gen(solve2x2gen),
+                   solve3x3gen = pivot(solve2x2gen),
                    optTol = optTol,
                    DTB = 0.01,
                    maxRefinementSteps = 3);

@@ -2,7 +2,8 @@ isdefined(Base, :__precompile__) && __precompile__()
 
 module IntPoint
 
-export Id, Diag, intpoint, pivot3gen
+export Id, Diag, intpoint, pivot3gen, preprocess_intpoint, 
+  IntPointSolver
 
 import Base:+,*,-,\,^
 using Base.LinAlg.BLAS:axpy!,scal!
@@ -159,7 +160,6 @@ function nestod_soc(z,s)
   return SymWoodbury(J, reshape(v, length(v), 1), ones(1,1))
 
 end
-
 
 function nestod_sdc(z,s)
 
@@ -331,6 +331,8 @@ Solves the 3x3 system
 │ G           │ │ w' │   │ w │ 
 │ A        F² │ │ v' │   │ v │
 └             ┘ └    ┘   └   ┘
+
+directly using an LU Factorization
 """
 function solve3x3gen_sparse_dense(F, F⁻¹, Q, A, G)
 
@@ -406,6 +408,17 @@ function lift(F::Block)
 
 end
 
+"""
+Solves the 3x3 system
+
+┌             ┐ ┌    ┐   ┌   ┐
+│ Q   G'  -A' │ │ y' │ = │ y │
+│ G           │ │ w' │   │ w │ 
+│ A        F² │ │ v' │   │ v │
+└             ┘ └    ┘   └   ┘
+
+By lifting the large diagonal plus rank 3 blocks of F²
+"""
 function solve3x3gen_sparse_lift(F, F⁻¹, Q, A, G)
 
   n = size(Q,1) # Number of variables
@@ -438,6 +451,13 @@ function solve3x3gen_sparse_lift(F, F⁻¹, Q, A, G)
 
 end
 
+""" 
+Intelligently chooses between solve3x3gen_sparse_lift and
+solve3x3gen_sparse_dense by approximating the number of non-zeros in
+both and choosing the form with more sparsity. The former is better
+for large second order cones, while the latter is better if the
+constraints are the product of many small cones. 
+"""
 function solve3x3gen_sparse(F, F⁻¹, Q, A, G)
 
   function count_lift(F)
@@ -472,6 +492,7 @@ function solve3x3gen_sparse(F, F⁻¹, Q, A, G)
   else 
     return solve3x3gen_sparse_dense(F, F⁻¹, Q, A, G)
   end    
+
 end
 
 """
@@ -510,7 +531,7 @@ end
 Wrapper around solve2xegen to solve 3x3 systems by pivoting
 on the third component.
 """
-function pivot3(solve2x2gen, F, F⁻¹, Q, A, G)
+function pivotgen(solve2x2gen, F, F⁻¹, Q, A, G)
 
   F⁻² = F⁻¹*F⁻¹
   solve2x2 = solve2x2gen(F, F⁻¹, Q, A, G)
@@ -527,7 +548,7 @@ function pivot3(solve2x2gen, F, F⁻¹, Q, A, G)
 
 end
 
-pivot3gen(solve2x2gen) = (F,F⁻¹,Q,A,G) -> pivot3(solve2x2gen,F,F⁻¹,Q,A,G)
+pivot(solve2x2gen) = (F,F⁻¹,Q,A,G) -> pivotgen(solve2x2gen,F,F⁻¹,Q,A,G)
 
 # ──────────────────────────────────────────────────────────────
 #  Interior Point
@@ -953,5 +974,8 @@ function intpoint(
   return sol
 
 end
+
+include("low_level_wrapper.jl")
+include("preprocessor.jl")
 
 end
