@@ -2,7 +2,7 @@ isdefined(Base, :__precompile__) && __precompile__()
 
 module IntPoint
 
-export Id, Diag, intpoint, pivot3gen, preprocess_intpoint, 
+export Id, Diag, intpoint, pivot, preprocess_intpoint, 
   IntPointSolver
 
 import Base:+,*,-,\,^
@@ -533,7 +533,7 @@ on the third component.
 """
 function pivotgen(solve2x2gen, F, F⁻¹, Q, A, G)
 
-  F⁻² = F⁻¹*F⁻¹
+  F⁻² = F⁻¹^2
   solve2x2 = solve2x2gen(F, F⁻¹, Q, A, G)
 
   function solve3x3(y, w, v)
