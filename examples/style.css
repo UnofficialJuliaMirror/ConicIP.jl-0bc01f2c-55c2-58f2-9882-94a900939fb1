@@ -1,0 +1,58 @@
+<style>
+
+/*div#maintoolbar, div#header {display: none !important;}
+*/
+#notebook-container {
+font-family: Computer Modern; 
+  width:700px;
+  padding: 20px;
+  background-color: #FFF;
+  min-height: 10;
+  -webkit-box-shadow: 0px 0px 0px 2px rgba(0, 0, 0, 1);
+  /* box-shadow: 0px 0px 2px 1px rgba(0, 0, 0, 1); */
+}
+
+body {
+  background-color: white !important;
+}
+
+@font-face { 
+  font-family: Computer Modern; 
+src:url('http://gabgoh.github.io/cmunorm.ttf');
+}
+
+/* src: url('http://mirrors.ctan.org/
+fonts/cm-unicode/fonts/otf/cmunss.otf'); */
+
+div.cell{
+  width:600px;
+  margin-left:auto;
+  margin-right:auto;
+}
+
+div.output_subarea {
+    overflow-x: auto;
+    padding: 0.4em;
+    -webkit-box-flex: 1;
+    -moz-box-flex: 1;
+    box-flex: 1;
+    flex: 1;
+    max-width: calc(100%);
+}
+
+h1 { font-family: Computer Modern; }
+
+.prompt{ display:None; }
+
+.output_png { margin: auto; }
+
+hr {
+    display: block;
+    height: 1px;
+    border: 0;
+    border-top: 1px solid #000;
+    margin: 1em 0;
+    padding: 0; 
+}
+
+</style>
