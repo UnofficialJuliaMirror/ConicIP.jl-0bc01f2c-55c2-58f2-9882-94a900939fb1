@@ -12,7 +12,7 @@ FactCheck.setstyle(:default)
 global tol    = 1e-4
 global optTol = 1e-6
 
-facts("LBFGS module") do
+facts("IntPoint module") do
 
   srand(0)
 

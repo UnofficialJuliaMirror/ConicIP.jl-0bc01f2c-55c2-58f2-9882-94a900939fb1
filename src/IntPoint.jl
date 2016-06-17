@@ -325,13 +325,13 @@ end
 
 """
 Solves the 3x3 system
-
+```
 ┌             ┐ ┌    ┐   ┌   ┐
 │ Q   G'  -A' │ │ y' │ = │ y │
 │ G           │ │ w' │   │ w │ 
 │ A        F² │ │ v' │   │ v │
 └             ┘ └    ┘   └   ┘
-
+```
 directly using an LU Factorization
 """
 function solve3x3gen_sparse_dense(F, F⁻¹, Q, A, G)
@@ -410,13 +410,13 @@ end
 
 """
 Solves the 3x3 system
-
+```
 ┌             ┐ ┌    ┐   ┌   ┐
 │ Q   G'  -A' │ │ y' │ = │ y │
 │ G           │ │ w' │   │ w │ 
 │ A        F² │ │ v' │   │ v │
 └             ┘ └    ┘   └   ┘
-
+```
 By lifting the large diagonal plus rank 3 blocks of F²
 """
 function solve3x3gen_sparse_lift(F, F⁻¹, Q, A, G)
@@ -497,11 +497,12 @@ end
 
 """
 Solves the 2x2 system
-
+```
 ┌                ┐ ┌    ┐   ┌   ┐
 │ Q + A'F⁻²A  G' │ │ y' │ = │ y │
 │ G              │ │ w' │   │ w │ 
 └                ┘ └    ┘   └   ┘
+```
 """
 function solve2x2gen(F, F⁻¹, Q, A, G)
 
@@ -569,22 +570,72 @@ type Solution
 end
 
 """
-  intpoint(Q, c, A, b, cone_dims, G, d)
+  intpoint(Q, c, A, b, cone_dims, G, d; 
+  solve3x3gen = solve3x3gen_sparse,
+  optTol = 1e-5,           
+  DTB = 0.01,             
+  verbose = true,         
+  maxRefinementSteps = 3, 
+  maxIters = 100,         
+  cache_nestodd = false,  
+  refinementThreshold = optTol/1e7)
 
 Interior point solver for the system
 
+```
 minimize    ½yᵀQy - cᵀy
 s.t         Ay >= b
             Gy  = d
+```
+
+Q,c,A,b,G,d are matrices (c,b,d are NOT vectors)
 
 cone_dims is an array of tuples (Cone Type, Dimension)
 
+```
 e.g. [("R",2),("Q",4)] means
 (y₁, y₂)          in  R+
 (y₃, y₄, y₅, y₆)  in  Q
+```
 
 SDP Cones are NOT supported and purely experimental at this
 point.
+
+The parameter solve3x3gen allows the passing of a custom solver 
+for the KKT System, as follows
+
+```
+julia> L = solve3x3gen(F,F⁻¹,Q,A,G)
+
+Then this 
+
+julia> (a,b,c) = L(y,w,v)
+
+solves the system
+┌             ┐ ┌   ┐   ┌   ┐
+│ Q   G'  -A' │ │ a │ = │ y │
+│ G           │ │ b │   │ w │ 
+│ A        F² │ │ c │   │ v │
+└             ┘ └   ┘   └   ┘  
+```
+
+We can also wrap a 2x2 solver using pivot3gen(solve2x2gen)
+The 2x2 solves the system
+
+```
+julia> L = solve2x2gen(F,F⁻¹,Q,A,G)
+
+Then this 
+
+julia> (a,b) = L(y,w) 
+
+solves the system
+
+┌                ┐ ┌   ┐   ┌   ┐
+│ Q + AᵀF²A   G' │ │ a │ = │ y │
+│ G              │ │ b │   │ w │
+└                ┘ └   ┘   └   ┘
+```
 """
 function intpoint(
 
@@ -599,7 +650,7 @@ function intpoint(
 
   # Solver Parameters
 
-  # L = solve3x3gen(F,Q,A,G)
+  # L = solve3x3gen(F,F⁻¹,Q,A,G)
   # L(a,b,c) solves the system
   # ┌             ┐ ┌   ┐   ┌   ┐
   # │ Q   G'  -A' │ │ a │ = │ y │
@@ -610,7 +661,7 @@ function intpoint(
   # We can also wrap a 2x2 solver using pivot3gen(solve2x2gen)
   # The 2x2 solves the system
   # 
-  # L = solve2x2gen(F,Q,A,G)
+  # L = solve2x2gen(F,F⁻¹,Q,A,G)
   # L(a,b) solves
   # ┌                ┐ ┌   ┐   ┌   ┐
   # │ Q + AᵀF²A   G' │ │ a │ = │ y │
