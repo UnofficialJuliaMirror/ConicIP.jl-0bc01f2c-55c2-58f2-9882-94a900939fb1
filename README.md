@@ -49,4 +49,4 @@ sol = intpoint( Q , c , A , b , 𝐾 , verbose = true);
 ```
 
 For a more detailed example involving callback functions, refer to this
-notebook.
+[notebook](https://cdn.rawgit.com/MPF-Optimization-Laboratory/IntPoint.jl/master/examples/callback.html).
