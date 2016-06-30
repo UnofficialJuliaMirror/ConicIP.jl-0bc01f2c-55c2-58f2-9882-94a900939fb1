@@ -80,6 +80,7 @@ x[I] =  y[J]  when J .> 0
 x[I] = -y[-J] when J .< 0
 """
 function signed_assign!(x, y, I, J)
+  I = abs(I)
   P = J .> 0
   x[I[P]] = y[J[P]]
   x[I[!P]] = -y[-J[!P]]
@@ -163,6 +164,9 @@ function loadproblem!(m::IntPointModel, c,
 
   cone_dims = []
 
+  Gs = 0
+  As = 0
+
   for (cone, ind) = constr_cones
 
     if typeof(ind) <: Integer
@@ -170,14 +174,14 @@ function loadproblem!(m::IntPointModel, c,
     end
 
     if cone == :Zero
-      i = size(G,1); G = [G; A_[ind,:]]; j = size(G,1)
+      i = Gs; Gs = Gs + length(ind); j = Gs
       d = [ d ; b_[ind,:] ]
       append!( I_G  , ind   )
       append!( I_Gl , i+1:j )
     end
 
     if cone == :NonPos
-      i = size(A,1); A = [A; A_[ind,:]]; j = size(A,1)
+      i = As; As = As + length(ind); j = As
       push!( cone_dims, ("R", length(ind)) )
       b = [b ; b_[ind,:] ]
       append!( I_A  , ind      )
@@ -185,18 +189,18 @@ function loadproblem!(m::IntPointModel, c,
     end
 
     if cone == :NonNeg
-      i = size(A,1); A = [A; -A_[ind,:]]; j = size(A,1)
+      i = As; As = As + length(ind); j = As
       push!( cone_dims, ("R", length(ind)) )
       b = [ b ; -b_[ind,:] ]
-      append!( I_A  , ind   )
+      append!( I_A  , -ind   )
       append!( I_Al , i+1:j )
     end
 
     if cone == :SOC
-      i = size(A,1); A = [A; -A_[ind,:]]; j = size(A,1)
+      i = As; As = As + length(ind); j = As
       push!( cone_dims, ("Q", length(ind)) )
       b = [ b ; -b_[ind,:] ]
-      append!( I_A  , ind   )
+      append!( I_A  , -ind   )
       append!( I_Al , i+1:j )
     end
 
@@ -220,22 +224,22 @@ function loadproblem!(m::IntPointModel, c,
     end
 
     if cone == :Zero
-      i = size(G,1); G = [G; I[ind,:]]; j = size(G,1)
+      i = Gs; Gs = Gs + length(ind); j = Gs
       d = [d ; zeros(length(ind), 1) ]
       append!( I_vG  , ind     )
       append!( I_vGl , (i+1:j) ) 
     end
 
     if cone == :NonPos
-      i = size(A,1); A = [A; -I[ind,:]]; j = size(A,1)
+      i = As; As = As + length(ind); j = As
       push!( cone_dims, ("R", length(ind)) )
       b = [ b ; zeros(length(ind), 1) ]
-      append!( I_vA  , ind      )
+      append!( I_vA  , -ind      )
       append!( I_vAl , -(i+1:j) )
     end
 
     if cone == :NonNeg
-      i = size(A,1); A = [A; I[ind,:]]; j = size(A,1)
+      i = As; As = As + length(ind); j = As
       push!( cone_dims, ("R", length(ind)) )
       b = [ b ; zeros(length(ind), 1) ]
       append!( I_vA  , ind     )
@@ -243,7 +247,7 @@ function loadproblem!(m::IntPointModel, c,
     end
 
     if cone == :SOC
-      i = size(A,1); A = [A; I[ind,:]]; j = size(A,1)
+      i = As; As = As + length(ind); j = As
       push!( cone_dims, ("Q", length(ind)) )
       b = [ b ; zeros(length(ind), 1) ]
       append!( I_vA  , ind     )
@@ -251,6 +255,12 @@ function loadproblem!(m::IntPointModel, c,
     end
 
   end
+
+  Λ = sign([I_A;I_vA])
+  A = Λ.*[A_[abs(I_A),:]; I[abs(I_vA),:]]
+
+  Λ = sign([I_G;I_vG])
+  G = Λ.*[A_[abs(I_G),:]; I[abs(I_vG),:]]
 
   m.Q           = spzeros(n,n)
   m.c           = -c''

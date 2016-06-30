@@ -73,7 +73,7 @@ function preprocess_intpoint(Q, c::Matrix,
     println("   - Augmenting $(n - length(ID) ) dual constraints"); 
   end
   
-  if (length(ID) == n) && (length(IP) == p)
+  if (verbose == true) &&  (length(ID) == n) && (length(IP) == p)
     println("   - No changes made")
   end
 
