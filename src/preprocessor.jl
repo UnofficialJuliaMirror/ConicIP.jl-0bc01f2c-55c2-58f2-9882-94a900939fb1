@@ -9,7 +9,6 @@ and checks if the equations are consistent.
 """
 function imcols(A, b; ϵ = 1e-10)
 
-
   # LU Factorization where L has unit diagonals
   if isempty(A)
     return ([], true)
@@ -44,8 +43,9 @@ Rank condition              : rank([Q A' G']) = size(Q,1)
 """
 function preprocess_intpoint(Q, c::Matrix, 
   A, b::Matrix, cone_dims, 
-  G = spzeros(0,length(c)), d = zeros(0,1); verbose = false, options...)
-
+  G = spzeros(0,length(c)), d = zeros(0,1); 
+  verbose = false,
+  options...)
 
   if verbose == true
     println()

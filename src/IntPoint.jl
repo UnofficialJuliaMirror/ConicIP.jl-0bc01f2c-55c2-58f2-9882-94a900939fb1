@@ -46,11 +46,11 @@ end
 
 type VecCongurance; R :: Matrix; end
 
-*(W::VecCongurance, x::VectorTypes)    = vec(W.R'*mat(x)*W.R)
-\(W::VecCongurance, x::VectorTypes)    = vec(inv(W.R)'*mat(x)*inv(W.R))
+*(W::VecCongurance, x::VectorTypes)    = vecm(W.R'*mat(x)*W.R)
+\(W::VecCongurance, x::VectorTypes)    = vecm(inv(W.R)'*mat(x)*inv(W.R))
 Base.inv(W::VecCongurance)             = VecCongurance(inv(W.R))
 ^(W::VecCongurance, n::Integer)        = VecCongurance(W.R^n)
-Base.size(W::VecCongurance, i)         = int(size(W.R,1)*(size(W.R,1)+1)/2)
+Base.size(W::VecCongurance, i)         = round(Int, size(W.R,1)*(size(W.R,1)+1)/2)
 
 function Base.full(W::VecCongurance)
   n = size(W,1)
@@ -62,11 +62,15 @@ function Base.full(W::VecCongurance)
   return Z
 end
 
-ord(x) = begin; n = length(x); int((sqrt(1+8*n) - 1)/2); end
+function Base.sparse(W::VecCongurance)
+  return sparse(full(W))
+end
+
+ord(x) = begin; n = length(x); round(Int, (sqrt(1+8*n) - 1)/2); end
 
 function mat(x)
 
-  # inverse of vec
+  # inverse of vecm
   # > mat([1,2,3,4,5,6)]
   #  1    2/√2  3√2
   #  2    4     5√2
@@ -75,7 +79,7 @@ function mat(x)
   n = ord(x)
   Z = zeros(n,n)
   for i = 1:n
-    k = length(x) - (n-i+2)*(n-i+1)/2
+    k = round(Int, length(x) - (n-i+2)*(n-i+1)/2)
     for j = 1:n
       if i <= j
         if i == j
@@ -92,14 +96,14 @@ function mat(x)
 
 end
 
-function vec(Z)
+function vecm(Z)
 
   # inverse of mat
-  # > vec([1 2 3; 2 4 5; 3 5 6])
+  # > vecm([1 2 3; 2 4 5; 3 5 6])
   # [1 2√2 3√2 4 5√2 6]
 
   n = size(Z,1)
-  x = zeros(int(n*(n+1)/2),1)
+  x = zeros(round(Int, n*(n+1)/2),1)
   c = 1
   for i = 1:n
     for j = 1:n
@@ -166,9 +170,13 @@ function nestod_sdc(z,s)
   # Nesterov-Todd Scaling Matrix for the Semidefinite Cone
   # Matrix which satisfies the properties
   # W*z = inv(W)*sb
+
   Z  = mat(z); S  = mat(s); Sq = S^(0.5)
-  #return VecCongurance((Sq*((Sq*Z*Sq)^(-0.5))*Sq)^(0.5))
-  return VecCongurance(S^(0.125)*Z^(-0.25)*S^(0.125))
+  (U,S,V) = svd(Sq*Z*Sq)
+  E = U*spdiagm(1./sqrt(abs(S)))*U'
+  R = Sq'*(E)*Sq
+  return VecCongurance(R^(0.5))
+  #return VecCongurance(S^(0.125)*Z^(-0.25)*S^(0.125))
 
 end
 
@@ -306,16 +314,16 @@ end
 
 function dsdc!(x, y, o)
 
-  n = int(sqrt(size(x,1)))
+  n = round(Int, sqrt(size(x,1)))
   X = mat(x); Y = mat(y)
-  o[:] = vec(lyap(Y,-X))
+  o[:] = vecm(lyap(Y,-X))
 
 end
 
 function xsdc!(x, y, o)
 
   X = mat(x); Y = mat(y)
-  o[:] = vec(X*Y + Y*X)
+  o[:] = vecm(X*Y + Y*X)
 
 end
 
@@ -710,17 +718,18 @@ function intpoint(
     if btype == "S"; conedim += ord(I);     end
   end
 
-  # e = Group identity
+  # e = conic group identity
   # Concatenate the vectors
   # [1, 1, … , 1] for R_+
   # [1, 0, … , 0] for Q
+  # vecm(I)        for S
 
   e = zeros(m,1)
   for (btype, I, i) = block_data
     m_i = length(I)
     if btype == "R"; e[I] = ones(m_i,1);             end
     if btype == "Q"; e[I] = [1; zeros(m_i-1,1)];     end
-    if btype == "S"; e[I] = vec(eye(ord(I)));        end
+    if btype == "S"; e[I] = vecm(eye(ord(I)));        end
   end
 
   # ──────────────────────────────────────────────────────────────

@@ -123,7 +123,8 @@ supportedcones(s::IntPointSolver)       = [:Free,
                                            :Zero, 
                                            :NonNeg, 
                                            :NonPos, 
-                                           :SOC]
+                                           :SOC,
+                                           :SDP]
 
 function show(m::IntPointModel)
 
@@ -204,6 +205,14 @@ function loadproblem!(m::IntPointModel, c,
       append!( I_Al , i+1:j )
     end
 
+    if cone == :SDP
+      i = As; As = As + length(ind); j = As
+      push!( cone_dims, ("S", length(ind)) )
+      b = [ b ; -b_[ind,:] ]
+      append!( I_A  , -ind   )
+      append!( I_Al , i+1:j )
+    end
+
   end
 
   I = speye(n,n)
@@ -249,6 +258,14 @@ function loadproblem!(m::IntPointModel, c,
     if cone == :SOC
       i = As; As = As + length(ind); j = As
       push!( cone_dims, ("Q", length(ind)) )
+      b = [ b ; zeros(length(ind), 1) ]
+      append!( I_vA  , ind     )
+      append!( I_vAl , (i+1:j) )  
+    end
+
+    if cone == :SDP
+      i = As; As = As + length(ind); j = As
+      push!( cone_dims, ("S", length(ind)) )
       b = [ b ; zeros(length(ind), 1) ]
       append!( I_vA  , ind     )
       append!( I_vAl , (i+1:j) )  
