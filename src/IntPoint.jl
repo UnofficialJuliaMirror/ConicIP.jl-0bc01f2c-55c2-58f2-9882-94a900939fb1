@@ -47,9 +47,10 @@ end
 type VecCongurance; R :: Matrix; end
 
 *(W::VecCongurance, x::VectorTypes)    = vecm(W.R'*mat(x)*W.R)
-\(W::VecCongurance, x::VectorTypes)    = vecm(inv(W.R)'*mat(x)*inv(W.R))
+\(W::VecCongurance, x::VectorTypes)    = inv(W)*x
+Base.ctranspose(W::VecCongurance)      = VecCongurance(W.R');
 Base.inv(W::VecCongurance)             = VecCongurance(inv(W.R))
-^(W::VecCongurance, n::Integer)        = VecCongurance(W.R^n)
+^(W::VecCongurance, n::Integer)        = VecCongurance(W.R*W.R') # This is R'R
 Base.size(W::VecCongurance, i)         = round(Int, size(W.R,1)*(size(W.R,1)+1)/2)
 
 function Base.full(W::VecCongurance)
@@ -171,12 +172,27 @@ function nestod_sdc(z,s)
   # Matrix which satisfies the properties
   # W*z = inv(W)*sb
 
-  Z  = mat(z); S  = mat(s); Sq = S^(0.5)
-  (U,S,V) = svd(Sq*Z*Sq)
-  E = U*spdiagm(1./sqrt(abs(S)))*U'
-  R = Sq'*(E)*Sq
-  return VecCongurance(R^(0.5))
-  #return VecCongurance(S^(0.125)*Z^(-0.25)*S^(0.125))
+  Ls  = chol(mat(s))'; 
+  Lz  = chol(mat(z))'; 
+  (U,Λ,V) = svd(Lz'*Ls)
+  R = inv(Lz)'*U*spdiagm(sqrt(Λ))
+  return VecCongurance(R)
+
+  # Z  = mat(z); S  = mat(s); Sq = S^(0.5)
+  # (U,S,V) = svd(Sq*Z*Sq)
+  # E = U*spdiagm(1./sqrt(abs(S)))*U'
+  # R = Sq'*(E)*Sq
+  # (U,S,V) = svd(R)
+  # R = U*spdiagm(sqrt(abs(S)))*U'
+  # return VecCongurance(R)
+
+  # (Us,Ss,Vs) = svd(S)
+  # (Uz,Sz,Vz) = svd(Z)
+
+  # Ss = Us*spdiagm(Ss.^(0.125))*Vs'
+  # Zz = Uz*spdiagm(Sz.^(-0.25))*Vz'
+  # return VecCongurance(Ss*Zz*Ss)
+#  return VecCongurance(S^(0.125)*Z^(-0.25)*S^(0.125))
 
 end
 
@@ -330,6 +346,55 @@ end
 # ──────────────────────────────────────────────────────────────
 #  KKT Solvers
 # ──────────────────────────────────────────────────────────────
+
+"""
+Solves the 3x3 system
+```
+┌             ┐ ┌    ┐   ┌   ┐
+│ Q   G'  -A' │ │ y' │ = │ y │
+│ G           │ │ w' │   │ w │ 
+│ A        F² │ │ v' │   │ v │
+└             ┘ └    ┘   └   ┘
+```
+by the double QR method described in CVXOPT
+http://www.seas.ucla.edu/~vandenbe/publications/coneprog.pdf
+section 10.2
+"""
+function solve3x3gen_qr(F, F⁻¹, Q, A, G)
+
+  n = size(Q,1) # Number of variables
+  m = size(A,1) # Number of inequality constraints
+  p = size(G,1) # Number of equality constraints
+
+  F⁻ᵀ     = full(inv(F))'
+  Atil    = F⁻ᵀ*full(A)
+  (Q0,R1) = qr(full(G'), thin = false)
+  Q1      = Q0[:,1:p]
+  Q2      = Q0[:,p+1:end]
+
+  L = qrfact(Q2'*(Q + Atil'Atil)*Q2)
+
+  function solve3x3(bx, by, bz)
+
+    Q1ᵀx = R1'\by
+    Q2ᵀx = L \ ( Q2'*(bx + Atil'*(F⁻ᵀ*bz)) -
+                 Q2'*((Q + Atil'Atil)*(Q1*(Q1ᵀx))) )
+    y    = R1 \ ( Q1'*(bx + Atil'*(F⁻ᵀ*bz))    -
+                  Q1'*(Q + Atil'*Atil)*Q1*Q1ᵀx -
+                  Q1'*(Q + Atil'*Atil)*Q2*Q2ᵀx )
+    x    = Q0'\[Q1ᵀx; Q2ᵀx]
+    Fz   = ( F⁻ᵀ*bz - 
+             Atil*(Q1*(Q1ᵀx)) - Atil*(Q2*(Q2ᵀx)) )
+    z    = inv(F)*Fz
+
+    return (x,y,z)
+
+  end
+
+  return solve3x3
+
+end
+
 
 """
 Solves the 3x3 system
@@ -675,7 +740,7 @@ function intpoint(
   # │ Q + AᵀF²A   G' │ │ a │ = │ y │
   # │ G              │ │ b │   │ w │
   # └                ┘ └   ┘   └   ┘
-  solve3x3gen = solve3x3gen_sparse,
+  solve3x3gen = solve3x3gen_qr,
 
   optTol = 1e-5,           # Optimal Tolerance
   DTB = 0.01,              # Distance to Boundary
@@ -686,6 +751,9 @@ function intpoint(
   refinementThreshold = optTol/1e7 # Accuracy of refinement steps
 
   )
+   
+  # writerun(Q,c,A,b,G,d, cone_dims)
+  # println(cone_dims)
 
   # Precomputed transposition matrices
   Aᵀ = A'; Gᵀ = G'
@@ -821,7 +889,7 @@ function intpoint(
     # ┌                  ┐ ┌    ┐   ┌     ┐
     # │ Q   G'  -A'      │ │ Δy │ = │ r.y │
     # │ G                │ │ Δw │   │ r.w │ S = block(λ)*F
-    # │ A             -I │ │ Δv │   │ r.v │ V = block(λ)*inv(F)
+    # │ A             -I │ │ Δv │   │ r.v │ V = block(λ)*inv(F)'
     # │          S     V │ │ Δs │   │ r.s │
     # └                  ┘ └    ┘   └     ┘
     # F = Nesterov-Todd scaling matrix
@@ -831,9 +899,9 @@ function intpoint(
 
     function solve4x4(r)
       
-      t1 = F*(r.s ÷ λ) 
+      t1 = F'*(r.s ÷ λ) 
       (Δy, Δw, Δv)  = solve3x3(r.y, r.w, r.v + t1)
-      axpy!(-1, F*(F*Δv), t1) # > Δs = t1 - F*(F*Δv)
+      axpy!(-1, F'*(F*Δv), t1) # > Δs = t1 - F*(F*Δv)
       return v4x1(Δy,Δw,Δv,t1)
 
     end
@@ -874,7 +942,7 @@ function intpoint(
   for Iter = 1:maxIters
 
     F    = nt_scaling(z.v, z.s)   # Nesterov-Todd Scaling Matrix
-    F⁻¹  = inv(F)
+    F⁻¹  = inv(F)'
     λ    = F*z.v;                 # This is also F\z.s.
 
     # The cache is an optimization for the case where there are 
@@ -924,6 +992,7 @@ function intpoint(
 
     # >> lc = -(F⁻¹dfs ∘ Fdfs) + (σ*μ)[1]*e;
     lc = (F⁻¹dfs ∘ Fdfs); axpy!(-(σ*μ)[1], e, lc);
+
     scal!(length(e), -1., lc, 1)
 
     r  =  v4x1(r0.y, r0.w, r0.v, rleft.s - lc)
@@ -933,6 +1002,7 @@ function intpoint(
     # ────────────────────────────────────────────────────────────
 
     Δz  = solve(r);
+    
     rStep = 1;
     for rStep = 1:maxRefinementSteps
       r0  = v4x1( Q*Δz.y  + Gᵀ*Δz.w  - Aᵀ*Δz.v ,
