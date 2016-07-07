@@ -992,7 +992,6 @@ function intpoint(
 
     # >> lc = -(F⁻¹dfs ∘ Fdfs) + (σ*μ)[1]*e;
     lc = (F⁻¹dfs ∘ Fdfs); axpy!(-(σ*μ)[1], e, lc);
-
     scal!(length(e), -1., lc, 1)
 
     r  =  v4x1(r0.y, r0.w, r0.v, rleft.s - lc)
@@ -1002,7 +1001,6 @@ function intpoint(
     # ────────────────────────────────────────────────────────────
 
     Δz  = solve(r);
-    
     rStep = 1;
     for rStep = 1:maxRefinementSteps
       r0  = v4x1( Q*Δz.y  + Gᵀ*Δz.w  - Aᵀ*Δz.v ,
