@@ -14,10 +14,15 @@ import Base.convert
 #
 
 immutable IntPointSolver <: AbstractMathProgSolver
-    options
+  preprocess
+  options
 end
 
-IntPointSolver(;kwargs...) = IntPointSolver(kwargs)
+IntPointSolver(;equalities_as_double_inequalities = false,
+                preprocess = true,
+                kwargs...) = 
+                IntPointSolver( preprocess, 
+                                kwargs )
 
 """
 Type which encapsulates a IntPoint model, and a way to convert
@@ -57,15 +62,16 @@ type IntPointModel <: AbstractConicModel
     I_A         ::Vector{Integer}
     I_G         ::Vector{Integer}
 
-    I_vAl        ::Vector{Integer}
-    I_vGl        ::Vector{Integer}
-    I_vA         ::Vector{Integer}
-    I_vG         ::Vector{Integer}
+    I_vAl       ::Vector{Integer}
+    I_vGl       ::Vector{Integer}
+    I_vA        ::Vector{Integer}
+    I_vG        ::Vector{Integer}
 
     # Number of constraints and varconstraints
     n_constr
     n_varconstr
 
+    preprocess  ::Bool
     options
 
 end
@@ -111,6 +117,7 @@ ConicModel(s::IntPointSolver) = IntPointModel(
   round(Int, zeros(0)),
   0,
   0,
+  s.preprocess,
   s.options)
 
 LinearQuadraticModel(s::IntPointSolver) = ConicToLPQPBridge(ConicModel(s))
@@ -301,7 +308,11 @@ end
 
 function optimize!(m::IntPointModel)
 
-  m.sol = preprocess_intpoint(m.Q,m.c,m.A,m.b,m.cone_dims,m.G,m.d; m.options...)
+  if m.preprocess
+    m.sol = preprocess_intpoint(m.Q,m.c,m.A,m.b,m.cone_dims,m.G,m.d; m.options...)
+  else
+    m.sol = intpoint(m.Q,m.c,m.A,m.b,m.cone_dims,m.G,m.d; m.options...)
+  end
 
   m.solve_stat = m.sol.status
 
