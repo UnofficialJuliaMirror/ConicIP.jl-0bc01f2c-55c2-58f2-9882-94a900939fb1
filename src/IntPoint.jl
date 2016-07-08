@@ -353,14 +353,14 @@ Solves the 3x3 system
 ┌             ┐ ┌    ┐   ┌   ┐
 │ Q   G'  -A' │ │ y' │ = │ y │
 │ G           │ │ w' │   │ w │ 
-│ A        F² │ │ v' │   │ v │
+│ A       FᵀF │ │ v' │   │ v │
 └             ┘ └    ┘   └   ┘
 ```
 by the double QR method described in CVXOPT
 http://www.seas.ucla.edu/~vandenbe/publications/coneprog.pdf
 section 10.2
 """
-function solve3x3gen_qr(F, F⁻¹, Q, A, G)
+function solve3x3gen_qr(F, F⁻ᵀ, Q, A, G)
 
   n = size(Q,1) # Number of variables
   m = size(A,1) # Number of inequality constraints
@@ -402,25 +402,25 @@ Solves the 3x3 system
 ┌             ┐ ┌    ┐   ┌   ┐
 │ Q   G'  -A' │ │ y' │ = │ y │
 │ G           │ │ w' │   │ w │ 
-│ A        F² │ │ v' │   │ v │
+│ A       FᵀF │ │ v' │   │ v │
 └             ┘ └    ┘   └   ┘
 ```
 directly using an LU Factorization
 """
-function solve3x3gen_sparse_dense(F, F⁻¹, Q, A, G)
+function solve3x3gen_sparse_dense(F, F⁻ᵀ, Q, A, G)
 
   n = size(Q,1) # Number of variables
   m = size(A,1) # Number of inequality constraints
   p = size(G,1) # Number of equality constraints
 
-  F² = sparse(F^2)
+  FᵀF = sparse(F^2)
   Q  = sparse(Q) # TODO: remove the need for this
   A  = sparse(A)
   G  = sparse(G)
 
   Z = [ Q        G'            -A' 
         G        spzeros(p,p)   spzeros(p,m)
-        A        spzeros(m,p)   F²            ]
+        A        spzeros(m,p)   FᵀF            ]
 
   ZZ = lufact(Z)
 
@@ -487,29 +487,29 @@ Solves the 3x3 system
 ┌             ┐ ┌    ┐   ┌   ┐
 │ Q   G'  -A' │ │ y' │ = │ y │
 │ G           │ │ w' │   │ w │ 
-│ A        F² │ │ v' │   │ v │
+│ A        FᵀF │ │ v' │   │ v │
 └             ┘ └    ┘   └   ┘
 ```
-By lifting the large diagonal plus rank 3 blocks of F²
+By lifting the large diagonal plus rank 3 blocks of FᵀF
 """
-function solve3x3gen_sparse_lift(F, F⁻¹, Q, A, G)
+function solve3x3gen_sparse_lift(F, F⁻ᵀ, Q, A, G)
 
   n = size(Q,1) # Number of variables
   m = size(A,1) # Number of inequality constraints
   p = size(G,1) # Number of equality constraints
 
-  (F²A, F²B, invF²D) = lift(F^2)
+  (FᵀFA, FᵀFB, invFᵀFD) = lift(F^2)
 
-  F² = sparse(F^2)
+  FᵀF = sparse(F^2)
   Q  = sparse(Q) # TODO: remove the need for this
   A  = sparse(A)
   G  = sparse(G)
-  r  = size(invF²D,1)
+  r  = size(invFᵀFD,1)
 
   Z = [ Q             G'            -A'            spzeros(n,r)
         G             spzeros(p,p)   spzeros(p,m)  spzeros(p,r)
-        A             spzeros(m,p)   F²A           F²B                         
-        spzeros(r,n)  spzeros(r,p)   F²B'          invF²D        ]
+        A             spzeros(m,p)   FᵀFA           FᵀFB                         
+        spzeros(r,n)  spzeros(r,p)   FᵀFB'          invFᵀFD        ]
 
   ZZ = lufact(Z)
 
@@ -531,7 +531,7 @@ both and choosing the form with more sparsity. The former is better
 for large second order cones, while the latter is better if the
 constraints are the product of many small cones. 
 """
-function solve3x3gen_sparse(F, F⁻¹, Q, A, G)
+function solve3x3gen_sparse(F, F⁻ᵀ, Q, A, G)
 
   function count_lift(F)
     n = 0
@@ -561,9 +561,9 @@ function solve3x3gen_sparse(F, F⁻¹, Q, A, G)
   end
 
   if count_lift(F) < count_dense(F)
-    return solve3x3gen_sparse_lift(F, F⁻¹, Q, A, G)
+    return solve3x3gen_sparse_lift(F, F⁻ᵀ, Q, A, G)
   else 
-    return solve3x3gen_sparse_dense(F, F⁻¹, Q, A, G)
+    return solve3x3gen_sparse_dense(F, F⁻ᵀ, Q, A, G)
   end    
 
 end
@@ -577,7 +577,7 @@ Solves the 2x2 system
 └                ┘ └    ┘   └   ┘
 ```
 """
-function solve2x2gen(F, F⁻¹, Q, A, G)
+function solve2x2gen(F, F⁻ᵀ, Q, A, G)
 
   n = size(Q,1) # Number of variables
   m = size(A,1) # Number of inequality constraints
@@ -605,10 +605,10 @@ end
 Wrapper around solve2xegen to solve 3x3 systems by pivoting
 on the third component.
 """
-function pivotgen(solve2x2gen, F, F⁻¹, Q, A, G)
+function pivotgen(solve2x2gen, F, F⁻ᵀ, Q, A, G)
 
-  F⁻² = F⁻¹^2
-  solve2x2 = solve2x2gen(F, F⁻¹, Q, A, G)
+  F⁻² = F⁻ᵀ^2
+  solve2x2 = solve2x2gen(F, F⁻ᵀ, Q, A, G)
 
   function solve3x3(y, w, v)
 
@@ -622,7 +622,7 @@ function pivotgen(solve2x2gen, F, F⁻¹, Q, A, G)
 
 end
 
-pivot(solve2x2gen) = (F,F⁻¹,Q,A,G) -> pivotgen(solve2x2gen,F,F⁻¹,Q,A,G)
+pivot(solve2x2gen) = (F,F⁻ᵀ,Q,A,G) -> pivotgen(solve2x2gen,F,F⁻ᵀ,Q,A,G)
 
 # ──────────────────────────────────────────────────────────────
 #  Interior Point
@@ -678,7 +678,7 @@ The parameter solve3x3gen allows the passing of a custom solver
 for the KKT System, as follows
 
 ```
-julia> L = solve3x3gen(F,F⁻¹,Q,A,G)
+julia> L = solve3x3gen(F,F⁻ᵀ,Q,A,G)
 
 Then this 
 
@@ -688,7 +688,7 @@ solves the system
 ┌             ┐ ┌   ┐   ┌   ┐
 │ Q   G'  -A' │ │ a │ = │ y │
 │ G           │ │ b │   │ w │ 
-│ A        F² │ │ c │   │ v │
+│ A       FᵀF │ │ c │   │ v │
 └             ┘ └   ┘   └   ┘  
 ```
 
@@ -696,7 +696,7 @@ We can also wrap a 2x2 solver using pivot3gen(solve2x2gen)
 The 2x2 solves the system
 
 ```
-julia> L = solve2x2gen(F,F⁻¹,Q,A,G)
+julia> L = solve2x2gen(F,F⁻ᵀ,Q,A,G)
 
 Then this 
 
@@ -705,7 +705,7 @@ julia> (a,b) = L(y,w)
 solves the system
 
 ┌                ┐ ┌   ┐   ┌   ┐
-│ Q + AᵀF²A   G' │ │ a │ = │ y │
+│ Q + AᵀFᵀFA  G' │ │ a │ = │ y │
 │ G              │ │ b │   │ w │
 └                ┘ └   ┘   └   ┘
 ```
@@ -723,21 +723,21 @@ function intpoint(
 
   # Solver Parameters
 
-  # L = solve3x3gen(F,F⁻¹,Q,A,G)
+  # L = solve3x3gen(F,F⁻ᵀ,Q,A,G)
   # L(a,b,c) solves the system
   # ┌             ┐ ┌   ┐   ┌   ┐
   # │ Q   G'  -A' │ │ a │ = │ y │
   # │ G           │ │ b │   │ w │ 
-  # │ A        F² │ │ c │   │ v │
+  # │ A       FᵀF │ │ c │   │ v │
   # └             ┘ └   ┘   └   ┘  
   #
   # We can also wrap a 2x2 solver using pivot3gen(solve2x2gen)
   # The 2x2 solves the system
   # 
-  # L = solve2x2gen(F,F⁻¹,Q,A,G)
+  # L = solve2x2gen(F,F⁻ᵀ,Q,A,G)
   # L(a,b) solves
   # ┌                ┐ ┌   ┐   ┌   ┐
-  # │ Q + AᵀF²A   G' │ │ a │ = │ y │
+  # │ Q + AᵀFᵀFA  G' │ │ a │ = │ y │
   # │ G              │ │ b │   │ w │
   # └                ┘ └   ┘   └   ┘
   solve3x3gen = solve3x3gen_qr,
@@ -752,9 +752,6 @@ function intpoint(
 
   )
    
-  # writerun(Q,c,A,b,G,d, cone_dims)
-  # println(cone_dims)
-
   # Precomputed transposition matrices
   Aᵀ = A'; Gᵀ = G'
 
@@ -882,20 +879,20 @@ function intpoint(
 
   end
 
-  function solve4x4gen(λ, F, F⁻¹, solve3x3gen = solve3x3gen)
+  function solve4x4gen(λ, F, F⁻ᵀ, solve3x3gen = solve3x3gen)
 
     #
     # solve4x4gen(λ, F)(r) solves the 4x4 KKT System
     # ┌                  ┐ ┌    ┐   ┌     ┐
     # │ Q   G'  -A'      │ │ Δy │ = │ r.y │
     # │ G                │ │ Δw │   │ r.w │ S = block(λ)*F
-    # │ A             -I │ │ Δv │   │ r.v │ V = block(λ)*inv(F)'
+    # │ A             -I │ │ Δv │   │ r.v │ V = block(λ)*F⁻ᵀ
     # │          S     V │ │ Δs │   │ r.s │
     # └                  ┘ └    ┘   └     ┘
     # F = Nesterov-Todd scaling matrix
     #
 
-    solve3x3 = solve3x3gen(F, F⁻¹, Q, A, G)
+    solve3x3 = solve3x3gen(F, F⁻ᵀ, Q, A, G)
 
     function solve4x4(r)
       
@@ -942,20 +939,20 @@ function intpoint(
   for Iter = 1:maxIters
 
     F    = nt_scaling(z.v, z.s)   # Nesterov-Todd Scaling Matrix
-    F⁻¹  = inv(F)'
-    λ    = F*z.v;                 # This is also F\z.s.
+    F⁻ᵀ  = inv(F)'
+    λ    = F*z.v;                 # This is also F⁻ᵀ*z.s.
 
     # The cache is an optimization for the case where there are 
     # many tiny blocks. Since creating mutiple views is time 
-    # consuming, we store F and F⁻¹ as big sparse matrices.
-    if cache_nestodd == true; cache(F); cache(F⁻¹); end
+    # consuming, we store F and F⁻ᵀ as big sparse matrices.
+    if cache_nestodd == true; cache(F); cache(F⁻ᵀ); end
 
-    solve = solve4x4gen(λ,F,F⁻¹)   # Caches 4x4 solver
+    solve = solve4x4gen(λ,F,F⁻ᵀ)   # Caches 4x4 solver
                                    # (used a few times, at least 2)
 
     #         ┌                   ┐ ┌     ┐
     # rleft = │ Q   G'   -A'      │ │ z.y │
-    #         │ G                 │ │ z.w │  V = block(F*v)*inv(F)
+    #         │ G                 │ │ z.w │  V = block(λ)*F⁻ᵀ
     #         │ A              -I │ │ z.v │    = block(λ)*λ
     #         │           S     V │ │ z.s │
     #         └                   ┘ └     ┘
@@ -987,11 +984,11 @@ function intpoint(
     #  Corrector
     # ────────────────────────────────────────────────────────────
 
-    F⁻¹dfs = F⁻¹*d_aff.s
+    F⁻ᵀdfs = F⁻ᵀ*d_aff.s
     Fdfs   = F*d_aff.v
 
-    # >> lc = -(F⁻¹dfs ∘ Fdfs) + (σ*μ)[1]*e;
-    lc = (F⁻¹dfs ∘ Fdfs); axpy!(-(σ*μ)[1], e, lc);
+    # >> lc = -(F⁻ᵀdfs ∘ Fdfs) + (σ*μ)[1]*e;
+    lc = (F⁻ᵀdfs ∘ Fdfs); axpy!(-(σ*μ)[1], e, lc);
     scal!(length(e), -1., lc, 1)
 
     r  =  v4x1(r0.y, r0.w, r0.v, rleft.s - lc)
@@ -1006,7 +1003,7 @@ function intpoint(
       r0  = v4x1( Q*Δz.y  + Gᵀ*Δz.w  - Aᵀ*Δz.v ,
                   G*Δz.y                       ,
                   A*Δz.y - Δz.s                ,
-                  λ∘(F*Δz.v) + λ∘(F⁻¹*Δz.s) )
+                  λ∘(F*Δz.v) + λ∘(F⁻ᵀ*Δz.s) )
       rIr = r - r0
       rnorm = norm(rIr)/(n + 2*m)
       if rnorm > 0.1
