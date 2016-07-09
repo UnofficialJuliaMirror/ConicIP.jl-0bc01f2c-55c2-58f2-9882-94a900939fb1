@@ -344,7 +344,7 @@ function xsdc!(x, y, o)
 end
 
 # ──────────────────────────────────────────────────────────────
-#  KKT Solvers
+#  Various KKT Solvers
 # ──────────────────────────────────────────────────────────────
 
 """
@@ -360,78 +360,42 @@ by the double QR method described in CVXOPT
 http://www.seas.ucla.edu/~vandenbe/publications/coneprog.pdf
 section 10.2
 """
-function solve3x3gen_qr(F, F⁻ᵀ, Q, A, G)
+function kktsolver_qr(Q, A, G)
 
   n = size(Q,1) # Number of variables
   m = size(A,1) # Number of inequality constraints
   p = size(G,1) # Number of equality constraints
 
-  F⁻ᵀ     = full(inv(F))'
-  Atil    = F⁻ᵀ*full(A)
   (Q0,R1) = qr(full(G'), thin = false)
   Q1      = Q0[:,1:p]
   Q2      = Q0[:,p+1:end]
 
-  L = qrfact(Q2'*(Q + Atil'Atil)*Q2)
+  function solve3x3gen(F, F⁻ᵀ)
 
-  function solve3x3(bx, by, bz)
+    F⁻ᵀ     = full(inv(F))'
+    Atil    = F⁻ᵀ*full(A)
+    L = qrfact(Q2'*(Q + Atil'Atil)*Q2)
 
-    Q1ᵀx = R1'\by
-    Q2ᵀx = L \ ( Q2'*(bx + Atil'*(F⁻ᵀ*bz)) -
-                 Q2'*((Q + Atil'Atil)*(Q1*(Q1ᵀx))) )
-    y    = R1 \ ( Q1'*(bx + Atil'*(F⁻ᵀ*bz))    -
-                  Q1'*(Q + Atil'Atil)*Q1*Q1ᵀx -
-                  Q1'*(Q + Atil'Atil)*Q2*Q2ᵀx )
-    x    = Q0'\[Q1ᵀx; Q2ᵀx]
-    Fz   = ( F⁻ᵀ*bz - 
-             Atil*(Q1*(Q1ᵀx)) - Atil*(Q2*(Q2ᵀx)) )
-    z    = inv(F)*Fz
+    function solve3x3(bx, by, bz)
 
-    return (x,y,z)
+      Q1ᵀx = R1'\by
+      Q2ᵀx = L \ ( Q2'*(bx + Atil'*(F⁻ᵀ*bz)) -
+                   Q2'*((Q + Atil'Atil)*(Q1*(Q1ᵀx))) )
+      y    = R1 \ ( Q1'*(bx + Atil'*(F⁻ᵀ*bz))    -
+                    Q1'*(Q + Atil'Atil)*Q1*Q1ᵀx -
+                    Q1'*(Q + Atil'Atil)*Q2*Q2ᵀx )
+      x    = Q0'\[Q1ᵀx; Q2ᵀx]
+      Fz   = ( F⁻ᵀ*bz - 
+               Atil*(Q1*(Q1ᵀx)) - Atil*(Q2*(Q2ᵀx)) )
+      z    = inv(F)*Fz
 
-  end
+      return (x,y,z)
 
-  return solve3x3
+    end
 
-end
-
-
-"""
-Solves the 3x3 system
-```
-┌             ┐ ┌    ┐   ┌   ┐
-│ Q   G'  -A' │ │ y' │ = │ y │
-│ G           │ │ w' │   │ w │ 
-│ A       FᵀF │ │ v' │   │ v │
-└             ┘ └    ┘   └   ┘
-```
-directly using an LU Factorization
-"""
-function solve3x3gen_sparse_dense(F, F⁻ᵀ, Q, A, G)
-
-  n = size(Q,1) # Number of variables
-  m = size(A,1) # Number of inequality constraints
-  p = size(G,1) # Number of equality constraints
-
-  FᵀF = sparse(F^2)
-  Q  = sparse(Q) # TODO: remove the need for this
-  A  = sparse(A)
-  G  = sparse(G)
-
-  Z = [ Q        G'             -A' 
-        G        spzeros(p,p)   spzeros(p,m)
-        A        spzeros(m,p)   FᵀF           ]
-
-  ZZ = lufact(Z)
-
-  function solve3x3(Δy, Δw, Δv)
-
-    z = ZZ\[Δy; Δw; Δv]
-    return (z[1:n,:], z[n+1:n+p,:], z[n+p+1:end,:])
+    return solve3x3
 
   end
-
-  return solve3x3
 
 end
 
@@ -481,7 +445,40 @@ function lift(F::Block)
 
 end
 
+
 """
+Estimates for the number of nonzeros of lift(F)
+"""
+function count_lift(F)
+  n = 0
+  for Blk = F.Blocks
+    if isa(Blk, SymWoodbury)
+      n = n + size(Blk,1) + 2*length(Blk.B) + 3
+    end
+    if isa(Blk, Diag)
+      n = n + size(Blk,1)
+    end
+  end
+  return n
+end
+
+"""
+Estimates the number of nonzeros of F
+"""
+function count_dense(F)
+  n = 0
+  for Blk = F.Blocks
+    if isa(Blk, SymWoodbury)
+      n = n + size(Blk,1)^2
+    end
+    if isa(Blk, Diag)
+      n = n + size(Blk,1)
+    end
+  end
+  return n
+end
+
+""" 
 Solves the 3x3 system
 ```
 ┌             ┐ ┌    ┐   ┌   ┐
@@ -490,84 +487,67 @@ Solves the 3x3 system
 │ A       FᵀF │ │ v' │   │ v │
 └             ┘ └    ┘   └   ┘
 ```
+
 By lifting the large diagonal plus rank 3 blocks of FᵀF
-"""
-function solve3x3gen_sparse_lift(F, F⁻ᵀ, Q, A, G)
 
-  n = size(Q,1) # Number of variables
-  m = size(A,1) # Number of inequality constraints
-  p = size(G,1) # Number of equality constraints
-
-  (FᵀFA, FᵀFB, invFᵀFD) = lift(F^2)
-
-  FᵀF = sparse(F^2)
-  Q  = sparse(Q) # TODO: remove the need for this
-  A  = sparse(A)
-  G  = sparse(G)
-  r  = size(invFᵀFD,1)
-
-  Z = [ Q             G'            -A'            spzeros(n,r)
-        G             spzeros(p,p)   spzeros(p,m)  spzeros(p,r)
-        A             spzeros(m,p)   FᵀFA          FᵀFB                         
-        spzeros(r,n)  spzeros(r,p)   FᵀFB'         invFᵀFD        ]
-
-  ZZ = lufact(Z)
-
-  function solve3x3(Δy, Δw, Δv)
-
-    z = ZZ\[Δy; Δw; Δv; zeros(r,1)]
-    return (z[1:n,:], z[n+1:n+p,:], z[(n+p+1):(n+m+p),:])
-
-  end
-
-  return solve3x3
-
-end
-
-""" 
 Intelligently chooses between solve3x3gen_sparse_lift and
 solve3x3gen_sparse_dense by approximating the number of non-zeros in
 both and choosing the form with more sparsity. The former is better
 for large second order cones, while the latter is better if the
 constraints are the product of many small cones. 
 """
-function solve3x3gen_sparse(F, F⁻ᵀ, Q, A, G)
+function kktsolver_sparse(Q, A, G)
 
-  function count_lift(F)
-    n = 0
-    for Blk = F.Blocks
-      if isa(Blk, SymWoodbury)
-        n = n + size(Blk,1) + 2*length(Blk.B) + 3
+  n = size(Q,1) # Number of variables
+  m = size(A,1) # Number of inequality constraints
+  p = size(G,1) # Number of equality constraints
+
+  Q = sparse(Q) # TODO: remove the need for this ?
+  A = sparse(A)
+  G = sparse(G)
+
+  function solve3x3gen_sparse(F, F⁻ᵀ)
+
+    if count_lift(F) < count_dense(F)
+    
+      (FᵀFA, FᵀFB, invFᵀFD) = lift(F^2);r  = size(invFᵀFD,1)
+
+      Z = [ Q             G'            -A'            spzeros(n,r)
+            G             spzeros(p,p)   spzeros(p,m)  spzeros(p,r)
+            A             spzeros(m,p)   FᵀFA          FᵀFB                         
+            spzeros(r,n)  spzeros(r,p)   FᵀFB'         invFᵀFD        ]
+
+      ZZ = lufact(Z)
+
+      function solve3x3(Δy, Δw, Δv)
+        z = ZZ\[Δy; Δw; Δv; zeros(r,1)]
+        return (z[1:n,:], z[n+1:n+p,:], z[(n+p+1):(n+m+p),:])
       end
-      if isa(Blk, Diag)
-        n = n + size(Blk,1)
+
+    else 
+
+      FᵀF = sparse(F^2)
+
+      Z = [ Q        G'             -A' 
+            G        spzeros(p,p)   spzeros(p,m)
+            A        spzeros(m,p)   FᵀF           ]
+
+      ZZ = lufact(Z)
+
+      function solve3x3(Δy, Δw, Δv)
+        z = ZZ\[Δy; Δw; Δv]
+        return (z[1:n,:], z[n+1:n+p,:], z[n+p+1:end,:])
       end
-    end
-    return n
+
+    end    
+
+    return solve3x3
+
   end
 
-
-  function count_dense(F)
-    n = 0
-    for Blk = F.Blocks
-      if isa(Blk, SymWoodbury)
-        n = n + size(Blk,1)^2
-      end
-      if isa(Blk, Diag)
-        n = n + size(Blk,1)
-      end
-    end
-    return n
-  end
-
-  if count_lift(F) < count_dense(F)
-    return solve3x3gen_sparse_lift(F, F⁻ᵀ, Q, A, G)
-  else 
-    return solve3x3gen_sparse_dense(F, F⁻ᵀ, Q, A, G)
-  end    
+  return solve3x3gen_sparse
 
 end
-
 """
 Solves the 2x2 system
 ```
@@ -577,29 +557,34 @@ Solves the 2x2 system
 └                ┘ └    ┘   └   ┘
 ```
 """
-function solve2x2gen(F, F⁻ᵀ, Q, A, G)
+function kktsolver_2x2(Q, A, G)
 
   n = size(Q,1) # Number of variables
   m = size(A,1) # Number of inequality constraints
   p = size(G,1) # Number of equality constraints
 
-  F⁻ᵀ = sparse(F⁻ᵀ)
-  
-  AᵀFᵀFA = A'*(F⁻ᵀ*(F⁻ᵀ*A))
+  function solve2x2gen(F, F⁻ᵀ)
 
-  Z = [ Q + AᵀFᵀFA   G'            
-        G            spzeros(p,p) ]
+    F⁻ᵀ = sparse(F⁻ᵀ)
+    AᵀF⁻¹F⁻ᵀA = A'*(F⁻ᵀ'*(F⁻ᵀ*A))
 
-  Z = lufact(Z)
+    Z = [ Q + AᵀF⁻¹F⁻ᵀA   G'            
+          G            spzeros(p,p) ]
 
-  function solve2x2(Δy, Δw)
+    Z = lufact(Z)
 
-    z = Z\[Δy; Δw]
-    return (z[1:n,:], z[n+1:end,:])
+    function solve2x2(Δy, Δw)
+
+      z = Z\[Δy; Δw]
+      return (z[1:n,:], z[n+1:end,:])
+
+    end
+
+    return solve2x2
 
   end
 
-  return solve2x2
+  return solve2x2gen
 
 end
 
@@ -607,23 +592,32 @@ end
 Wrapper around solve2xegen to solve 3x3 systems by pivoting
 on the third component.
 """
-function pivotgen(solve2x2gen, F, F⁻ᵀ, Q, A, G)
+function pivotgen(kktsolver_2x2,Q,A,G)
 
-  solve2x2 = solve2x2gen(F, F⁻ᵀ, Q, A, G)
+  solve2x2gen = kktsolver_2x2(Q,A,G)
 
-  function solve3x3(y, w, v)
+  function solve3x3gen(F, F⁻ᵀ)
 
-    t1 = F⁻ᵀ*(F⁻ᵀ*v)
-    (Δy, Δw) = solve2x2(y + A'*t1, w)
-    axpy!(-1, F⁻ᵀ*(F⁻ᵀ*(A*Δy)), t1)  # Δv = F⁻²*(v - A*Δy)
+    F⁻² = F⁻ᵀ^2
+    solve2x2 = solve2x2gen(F, F⁻ᵀ)
 
-    return(Δy, Δw, t1)
+    function solve3x3(y, w, v)
+
+      t1 = F⁻ᵀ*(F⁻ᵀ*v)
+      (Δy, Δw) = solve2x2(y + A'*t1, w)
+      axpy!(-1, F⁻ᵀ*(F⁻ᵀ*(A*Δy)), t1)  # Δv = F⁻²*(v - A*Δy)
+
+      return(Δy, Δw, t1)
+
+    end
 
   end
 
+  return solve3x3gen
+
 end
 
-pivot(solve2x2gen) = (F,F⁻ᵀ,Q,A,G) -> pivotgen(solve2x2gen,F,F⁻ᵀ,Q,A,G)
+pivot(kktsolver_2x2) = (Q,A,G) -> pivotgen(kktsolver_2x2,Q,A,G)
 
 # ──────────────────────────────────────────────────────────────
 #  Interior Point
@@ -741,7 +735,7 @@ function intpoint(
   # │ Q + AᵀFᵀFA  G' │ │ a │ = │ y │
   # │ G              │ │ b │   │ w │
   # └                ┘ └   ┘   └   ┘
-  solve3x3gen = pivot(solve2x2gen),
+  kktsolver = kktsolver_sparse,
 
   optTol = 1e-5,           # Optimal Tolerance
   DTB = 0.01,              # Distance to Boundary
@@ -879,6 +873,8 @@ function intpoint(
 
   end
 
+  solve3x3gen = kktsolver(Q,A,G)
+
   function solve4x4gen(λ, F, F⁻ᵀ, solve3x3gen = solve3x3gen)
 
     #
@@ -892,7 +888,7 @@ function intpoint(
     # F = Nesterov-Todd scaling matrix
     #
 
-    solve3x3 = solve3x3gen(F, F⁻ᵀ, Q, A, G)
+    solve3x3 = solve3x3gen(F, F⁻ᵀ)
 
     function solve4x4(r)
       
