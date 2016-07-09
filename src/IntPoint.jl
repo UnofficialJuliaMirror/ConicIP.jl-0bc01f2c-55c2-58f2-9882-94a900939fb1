@@ -380,8 +380,8 @@ function solve3x3gen_qr(F, F⁻ᵀ, Q, A, G)
     Q2ᵀx = L \ ( Q2'*(bx + Atil'*(F⁻ᵀ*bz)) -
                  Q2'*((Q + Atil'Atil)*(Q1*(Q1ᵀx))) )
     y    = R1 \ ( Q1'*(bx + Atil'*(F⁻ᵀ*bz))    -
-                  Q1'*(Q + Atil'*Atil)*Q1*Q1ᵀx -
-                  Q1'*(Q + Atil'*Atil)*Q2*Q2ᵀx )
+                  Q1'*(Q + Atil'Atil)*Q1*Q1ᵀx -
+                  Q1'*(Q + Atil'Atil)*Q2*Q2ᵀx )
     x    = Q0'\[Q1ᵀx; Q2ᵀx]
     Fz   = ( F⁻ᵀ*bz - 
              Atil*(Q1*(Q1ᵀx)) - Atil*(Q2*(Q2ᵀx)) )
@@ -418,9 +418,9 @@ function solve3x3gen_sparse_dense(F, F⁻ᵀ, Q, A, G)
   A  = sparse(A)
   G  = sparse(G)
 
-  Z = [ Q        G'            -A' 
+  Z = [ Q        G'             -A' 
         G        spzeros(p,p)   spzeros(p,m)
-        A        spzeros(m,p)   FᵀF            ]
+        A        spzeros(m,p)   FᵀF           ]
 
   ZZ = lufact(Z)
 
@@ -487,7 +487,7 @@ Solves the 3x3 system
 ┌             ┐ ┌    ┐   ┌   ┐
 │ Q   G'  -A' │ │ y' │ = │ y │
 │ G           │ │ w' │   │ w │ 
-│ A        FᵀF │ │ v' │   │ v │
+│ A       FᵀF │ │ v' │   │ v │
 └             ┘ └    ┘   └   ┘
 ```
 By lifting the large diagonal plus rank 3 blocks of FᵀF
@@ -508,8 +508,8 @@ function solve3x3gen_sparse_lift(F, F⁻ᵀ, Q, A, G)
 
   Z = [ Q             G'            -A'            spzeros(n,r)
         G             spzeros(p,p)   spzeros(p,m)  spzeros(p,r)
-        A             spzeros(m,p)   FᵀFA           FᵀFB                         
-        spzeros(r,n)  spzeros(r,p)   FᵀFB'          invFᵀFD        ]
+        A             spzeros(m,p)   FᵀFA          FᵀFB                         
+        spzeros(r,n)  spzeros(r,p)   FᵀFB'         invFᵀFD        ]
 
   ZZ = lufact(Z)
 
@@ -583,10 +583,12 @@ function solve2x2gen(F, F⁻ᵀ, Q, A, G)
   m = size(A,1) # Number of inequality constraints
   p = size(G,1) # Number of equality constraints
 
-  F⁻² = sparse(inv(F^2)) # TODO: Think about how it might help to pass in F^-1 
+  F⁻ᵀ = sparse(F⁻ᵀ)
+  
+  AᵀFᵀFA = A'*(F⁻ᵀ*(F⁻ᵀ*A))
 
-  Z = [ Q + A'*F⁻²*A   G'            
-        G              spzeros(p,p) ]
+  Z = [ Q + AᵀFᵀFA   G'            
+        G            spzeros(p,p) ]
 
   Z = lufact(Z)
 
@@ -607,14 +609,13 @@ on the third component.
 """
 function pivotgen(solve2x2gen, F, F⁻ᵀ, Q, A, G)
 
-  F⁻² = F⁻ᵀ^2
   solve2x2 = solve2x2gen(F, F⁻ᵀ, Q, A, G)
 
   function solve3x3(y, w, v)
 
-    t1 = F⁻²*v
+    t1 = F⁻ᵀ*(F⁻ᵀ*v)
     (Δy, Δw) = solve2x2(y + A'*t1, w)
-    axpy!(-1, F⁻²*(A*Δy), t1)  # Δv = F⁻²*(v - A*Δy)
+    axpy!(-1, F⁻ᵀ*(F⁻ᵀ*(A*Δy)), t1)  # Δv = F⁻²*(v - A*Δy)
 
     return(Δy, Δw, t1)
 
@@ -740,7 +741,7 @@ function intpoint(
   # │ Q + AᵀFᵀFA  G' │ │ a │ = │ y │
   # │ G              │ │ b │   │ w │
   # └                ┘ └   ┘   └   ┘
-  solve3x3gen = solve3x3gen_qr,
+  solve3x3gen = pivot(solve2x2gen),
 
   optTol = 1e-5,           # Optimal Tolerance
   DTB = 0.01,              # Distance to Boundary
@@ -787,8 +788,7 @@ function intpoint(
   # Concatenate the vectors
   # [1, 1, … , 1] for R_+
   # [1, 0, … , 0] for Q
-  # vecm(I)        for S
-
+  # vecm(I)       for S
   e = zeros(m,1)
   for (btype, I, i) = block_data
     m_i = length(I)
@@ -1055,12 +1055,11 @@ function intpoint(
     if max(μ[1], rDu, rPr, rCp) > 1/optTol || !all(isfinite([μ[1], rDu, rPr, rCp]))
 
         # Primal Infeasible
-
         r_infeas = norm(Gᵀ*z.w + Aᵀ*z.v)[1]/(b'*z.v + d'*z.w)[1]
 
         if r_infeas/(1+norm(c)) < optTol
 
-          if verbose;
+          if verbose
             print("\n > EXIT -- Infeasible!\n\n")
           end
           sol.status = :Infeasible
@@ -1069,13 +1068,12 @@ function intpoint(
         end 
 
         # Dual Infeasible
-        
         r_dual_infeas1 = isempty(A) ? -Inf : (A*z.y - z.s)[1]/vecdot(c,z.y)
         r_dual_infeas2 = isempty(G) ? -Inf : norm(G*z.y - d)
 
         if max(r_dual_infeas1, r_dual_infeas2) < optTol
 
-          if verbose;
+          if verbose
             print("\n > EXIT -- Dual Infeasible!\n\n")
           end
           sol.status = :DualInfeasible
@@ -1084,7 +1082,6 @@ function intpoint(
         end
 
         # Cause of Divergence Unknown
-        
         if verbose
             print("\n > EXIT -- Error!\n\n")
         end

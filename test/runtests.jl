@@ -344,7 +344,10 @@ facts("IntPoint module") do
     catch
       @fact 1 --> 1
     end
+
   end
+
+  include("externaltests.jl")
 
 end
 
