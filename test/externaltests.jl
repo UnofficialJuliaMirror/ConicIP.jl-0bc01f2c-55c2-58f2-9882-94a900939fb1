@@ -5,17 +5,13 @@ AND make sure it returns the right answer.
 
 module MathProgBaseTest
 
-try
+using IntPoint
+using MathProgBase
 
-	using IntPoint
-	using MathProgBase
-
-	Pkg.installed("MathProgBase")
-	include(Pkg.dir("MathProgBase")"/test/conicinterface.jl"); 
-	coniclineartest(IntPointSolver())
-	conicSDPtest(IntPointSolver(optTol = 1e-6))
-
-end
+Pkg.installed("MathProgBase")
+include(Pkg.dir("MathProgBase")"/test/conicinterface.jl"); 
+coniclineartest(IntPointSolver(verbose = true))
+conicSDPtest(IntPointSolver(verbose = true, optTol = 1e-6))
 
 end
 # Convex.jl Tests
@@ -34,7 +30,7 @@ if installed
 	using IntPoint
 	using Convex; 
 
-	set_default_solver(IntPointSolver(optTol = 1e-6))
+	set_default_solver(IntPointSolver(verbose = true, optTol = 1e-6))
 	include(Pkg.dir("Convex")"/test/runtests_single_solver.jl")
 
 end
@@ -61,10 +57,10 @@ if installed
 	using FactCheck
 	using MathProgBase
 
-	solvers = [IntPointSolver(optTol = 1e-6)]
-	sdp_solvers = [IntPointSolver(optTol = 1e-6)]
-	conic_solvers_with_duals = [IntPointSolver(optTol = 1e-6)]
-	lp_solvers = [IntPointSolver(optTol = 1e-6)]
+	solvers = [IntPointSolver(verbose = true, optTol = 1e-6)]
+	sdp_solvers = [IntPointSolver(verbose = true, optTol = 1e-6, solver = IntPoint.kktsolver_qr)]
+	conic_solvers_with_duals = [IntPointSolver(verbose = true, optTol = 1e-6)]
+	lp_solvers = [IntPointSolver(verbose = true, optTol = 1e-6)]
 	ip_solvers = []
 	JuUMPdir = Pkg.dir("JuMP")
 

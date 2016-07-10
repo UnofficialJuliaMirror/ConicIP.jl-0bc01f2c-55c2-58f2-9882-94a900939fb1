@@ -100,7 +100,6 @@ function lift(F::Block)
 
 end
 
-
 """
 Estimates for the number of nonzeros of lift(F)
 """
@@ -174,12 +173,14 @@ function kktsolver_sparse(Q, A, G)
 
       ZZ = lufact(Z)
 
-      function solve3x3(Δy, Δw, Δv)
+      function solve3x3lift(Δy, Δw, Δv)
         z = ZZ\[Δy; Δw; Δv; zeros(r,1)]
         return (z[1:n,:], z[n+1:n+p,:], z[(n+p+1):(n+m+p),:])
       end
 
-    else 
+     return solve3x3lift
+
+    else
 
       FᵀF = sparse(F^2)
 
@@ -189,14 +190,15 @@ function kktsolver_sparse(Q, A, G)
 
       ZZ = lufact(Z)
 
-      function solve3x3(Δy, Δw, Δv)
+      function solve3x3dense(Δy, Δw, Δv)
         z = ZZ\[Δy; Δw; Δv]
         return (z[1:n,:], z[n+1:n+p,:], z[n+p+1:end,:])
       end
 
+      return solve3x3dense
+
     end    
 
-    return solve3x3
 
   end
 

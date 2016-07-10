@@ -42,15 +42,20 @@ facts("IntPoint module") do
     b = -ones(2*n,1); k = size(A,1);
     ∇f = x -> H*(x - c);
 
-    function solve2x2gen(F, F⁻¹, Q, A, G)
-      v = inv(F[1]*F[1]).diag
-      D = Diagonal(v[1:n] + v[n+1:end])
-      invHD = inv(IntPoint.Diag(H.diag + D.diag));
-      return (rhs, rhs2) -> (invHD*rhs, zeros(0,1));
+    function kktsolver_2x2(Q,A,G)
+
+      function solve2x2gen(F, F⁻¹)
+        v = inv(F[1]*F[1]).diag
+        D = Diagonal(v[1:n] + v[n+1:end])
+        invHD = inv(IntPoint.Diag(H.diag + D.diag));
+        return (rhs, rhs2) -> (invHD*rhs, zeros(0,1));
+      end
+      return solve2x2gen
+      
     end
 
     sol = intpoint(H,H*c,A,b,[("R",2*n)],
-                   solve3x3gen = pivot(solve2x2gen),
+                   kktsolver = pivot(kktsolver_2x2),
                    optTol = optTol,
                    DTB = 0.01,
                    maxRefinementSteps = 3);

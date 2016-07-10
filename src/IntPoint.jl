@@ -180,13 +180,20 @@ function nestod_sdc(z,s)
   R = inv(Lz)'*U*spdiagm(sqrt(Λ))
   return VecCongurance(R)
 
-  # Z  = mat(z); S  = mat(s); Sq = S^(0.5)
-  # (U,S,V) = svd(Sq*Z*Sq)
-  # E = U*spdiagm(1./sqrt(abs(S)))*U'
-  # R = Sq'*(E)*Sq
-  # (U,S,V) = svd(R)
-  # R = U*spdiagm(sqrt(abs(S)))*U'
-  # return VecCongurance(R)
+end
+
+function nestod_sdc_sym(z,s)
+
+  # Symmetric Nesterov-Todd Scaling Matrix for the Semidefinite
+  # Cone.
+
+  Z  = mat(z); S  = mat(s); Sq = S^(0.5)
+  (U,S,V) = svd(Sq*Z*Sq)
+  E = U*spdiagm(1./sqrt(abs(S)))*U'
+  R = Sq'*(E)*Sq
+  (U,S,V) = svd(R)
+  R = U*spdiagm(sqrt(abs(S)))*U'
+  return VecCongurance(R)
 
   # (Us,Ss,Vs) = svd(S)
   # (Uz,Sz,Vz) = svd(Z)
@@ -425,10 +432,10 @@ julia> (a,b) = L(y,w)
 
 solves the system
 
-┌                ┐ ┌   ┐   ┌   ┐
-│ Q + AᵀFᵀFA  G' │ │ a │ = │ y │
-│ G              │ │ b │   │ w │
-└                ┘ └   ┘   └   ┘
+┌                     ┐ ┌   ┐   ┌   ┐
+│ Q + Aᵀinv(FᵀF)A  G' │ │ a │ = │ y │
+│ G                   │ │ b │   │ w │
+└                     ┘ └   ┘   └   ┘
 ```
 """
 function intpoint(
