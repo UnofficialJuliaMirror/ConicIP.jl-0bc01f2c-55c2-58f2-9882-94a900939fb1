@@ -52,8 +52,8 @@ type VecCongurance; R :: Matrix; end
 \(W::VecCongurance, x::VectorTypes)    = inv(W)*x
 Base.ctranspose(W::VecCongurance)      = VecCongurance(W.R');
 Base.inv(W::VecCongurance)             = VecCongurance(inv(W.R))
-^(W::VecCongurance, n::Integer)        = VecCongurance(W.R*W.R') # This is R'R
 Base.size(W::VecCongurance, i)         = round(Int, size(W.R,1)*(size(W.R,1)+1)/2)
+Base.Ac_mul_B(W1::VecCongurance, W2::VecCongurance) = VecCongurance(W2.R*W1.R')
 
 function Base.full(W::VecCongurance)
   n = size(W,1)
@@ -468,7 +468,7 @@ function intpoint(
   # │ Q + AᵀFᵀFA  G' │ │ a │ = │ y │
   # │ G              │ │ b │   │ w │
   # └                ┘ └   ┘   └   ┘
-  kktsolver = kktsolver_sparse,
+  kktsolver = kktsolver_qr,
 
   optTol = 1e-5,           # Optimal Tolerance
   DTB = 0.01,              # Distance to Boundary

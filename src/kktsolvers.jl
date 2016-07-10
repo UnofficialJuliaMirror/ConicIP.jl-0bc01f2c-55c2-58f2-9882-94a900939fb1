@@ -164,7 +164,7 @@ function kktsolver_sparse(Q, A, G)
 
     if count_lift(F) < count_dense(F)
     
-      (FᵀFA, FᵀFB, invFᵀFD) = lift(F^2);r  = size(invFᵀFD,1)
+      (FᵀFA, FᵀFB, invFᵀFD) = lift(F'F);r  = size(invFᵀFD,1)
 
       Z = [ Q             G'            -A'            spzeros(n,r)
             G             spzeros(p,p)   spzeros(p,m)  spzeros(p,r)
@@ -182,7 +182,7 @@ function kktsolver_sparse(Q, A, G)
 
     else
 
-      FᵀF = sparse(F^2)
+      FᵀF = sparse(F'F)
 
       Z = [ Q        G'             -A' 
             G        spzeros(p,p)   spzeros(p,m)
@@ -208,10 +208,10 @@ end
 """
 Solves the 2x2 system
 ```
-┌                ┐ ┌    ┐   ┌   ┐
-│ Q + A'F⁻²A  G' │ │ y' │ = │ y │
-│ G              │ │ w' │   │ w │ 
-└                ┘ └    ┘   └   ┘
+┌                   ┐ ┌    ┐   ┌   ┐
+│ Q + A'F⁻¹F⁻ᵀA  G' │ │ y' │ = │ y │
+│ G                 │ │ w' │   │ w │ 
+└                   ┘ └    ┘   └   ┘
 ```
 """
 function kktsolver_2x2(Q, A, G)
@@ -255,7 +255,6 @@ function pivotgen(kktsolver_2x2,Q,A,G)
 
   function solve3x3gen(F, F⁻ᵀ)
 
-    F⁻² = F⁻ᵀ^2
     solve2x2 = solve2x2gen(F, F⁻ᵀ)
 
     function solve3x3(y, w, v)
