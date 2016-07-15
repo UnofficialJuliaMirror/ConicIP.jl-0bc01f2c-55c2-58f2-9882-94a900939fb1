@@ -1,9 +1,9 @@
 IntPoint.jl: A Pure Julia Conic QP Solver
 ==
 
-Intpoint is an interior point solver based on [cvxopt](http://cvxopt.org/) for quadratic programs with polyhedral (here denoted `𝑅`) and second order cone (denoted `𝑄`) constraints. Since `Intpoint` is written in Julia, it allows abstract input and allows callbacks for it's most computationaly intensive internal routines.
+Intpoint is an interior point solver inspired by [cvxopt](http://cvxopt.org/) for quadratic programs with polyhedral (here denoted `𝑅`) and second order cone (denoted `𝑄`) constraints. Since `Intpoint` is written in Julia, it allows abstract input and allows callbacks for it's most computationaly intensive internal routines.
 
-#### Usage
+#### Basic Usage
 
 Intpoint has the interface
 ```julia
@@ -50,3 +50,34 @@ sol = intpoint( Q , c , A , b , 𝐾 , verbose = true);
 
 For a more detailed example involving callback functions, refer to this
 [notebook](https://cdn.rawgit.com/MPF-Optimization-Laboratory/IntPoint.jl/master/examples/callback.html).
+
+### Usage with modelling libraries
+
+IntPoint is integrated with [MathProgBase](https://github.com/JuliaOpt/MathProgBase.jl) and can be used as a solver in [JuMP](https://github.com/JuliaOpt/JuMP.jl) and [Convex](https://github.com/JuliaOpt/Convex.jl).
+
+#### JuMP.jl
+
+```julia
+using JuMP
+using IntPoint
+
+m = Model(solver = IntPointSolver())
+@variable(m, x[1:10] >= 0)
+@constraint(m, sum(x) == 1.0)
+@objective(m, Min, sum(x))
+status = solve(m)
+getvalue(x) # should be [0.1 0.1 ⋯ 0.1]
+```
+
+#### Convex.jl
+
+```julia
+using Convex
+using IntPoint
+
+set_default_solver(IntPointSolver())
+x = Variable(10)
+p = minimize( sum(x), [x >= 0, sum(x) == 1])
+solve!(p)
+x # should be [0.1 0.1 ⋯ 0.1]
+```
