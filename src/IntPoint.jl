@@ -676,7 +676,8 @@ function intpoint(
     # consuming, we store F and F⁻ᵀ as big sparse matrices.
     if cache_nestodd == true; cache(F); cache(F⁻ᵀ); end
 
-    solve = solve4x4gen(λ,F,F⁻ᵀ)   # Caches 4x4 solver
+    solve = solve4x4gen(
+    ,F,F⁻ᵀ)   # Caches 4x4 solver
                                    # (used a few times, at least 2)
 
     #         ┌                   ┐ ┌     ┐

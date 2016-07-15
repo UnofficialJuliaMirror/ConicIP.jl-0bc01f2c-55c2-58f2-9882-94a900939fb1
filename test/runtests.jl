@@ -352,7 +352,9 @@ facts("IntPoint module") do
 
   end
 
-  include("externaltests.jl")
+  content("SDP - Projection onto PSD Matrix") do
+
+  end
 
 end
 

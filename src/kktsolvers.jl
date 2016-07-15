@@ -29,16 +29,17 @@ function kktsolver_qr(Q, A, G)
 
     F⁻ᵀ     = full(inv(F))'
     Atil    = F⁻ᵀ*full(A)
-    L = qrfact(Q2'*(Q + Atil'Atil)*Q2)
+    QpAᵀA   = Q + Atil'Atil
+    L = qrfact(Q2'*(QpAᵀA)*Q2)
 
     function solve3x3(bx, by, bz)
 
       Q1ᵀx = R1'\by
       Q2ᵀx = L \ ( Q2'*(bx + Atil'*(F⁻ᵀ*bz)) -
-                   Q2'*((Q + Atil'Atil)*(Q1*(Q1ᵀx))) )
+                   Q2'*((QpAᵀA)*(Q1*(Q1ᵀx))) )
       y    = R1 \ ( Q1'*(bx + Atil'*(F⁻ᵀ*bz))    -
-                    Q1'*(Q + Atil'Atil)*Q1*Q1ᵀx -
-                    Q1'*(Q + Atil'Atil)*Q2*Q2ᵀx )
+                    Q1'*(QpAᵀA*(Q1*Q1ᵀx)) -
+                    Q1'*(QpAᵀA*(Q2*Q2ᵀx)) )
       x    = Q0'\[Q1ᵀx; Q2ᵀx]
       Fz   = ( F⁻ᵀ*bz - 
                Atil*(Q1*(Q1ᵀx)) - Atil*(Q2*(Q2ᵀx)) )
@@ -114,6 +115,7 @@ function count_lift(F)
     end
   end
   return n
+
 end
 
 """
@@ -130,6 +132,7 @@ function count_dense(F)
     end
   end
   return n
+
 end
 
 """ 
@@ -226,7 +229,7 @@ function kktsolver_2x2(Q, A, G)
     AᵀF⁻¹F⁻ᵀA = A'*(F⁻ᵀ'*(F⁻ᵀ*A))
 
     Z = [ Q + AᵀF⁻¹F⁻ᵀA   G'            
-          G            spzeros(p,p) ]
+          G               spzeros(p,p) ]
 
     Z = lufact(Z)
 
