@@ -2,14 +2,15 @@ isdefined(Base, :__precompile__) && __precompile__()
 
 module IntPoint
 
-export Id, Diag, intpoint, pivot, preprocess_intpoint, 
-  IntPointSolver
+export Id, intpoint, pivot, preprocess_intpoint, 
+  IntPointSolver, Block
 
 import Base:+,*,-,\,^
 using Base.LinAlg.BLAS:axpy!,scal!
-using SymWoodburyMatrices
-using BlockMatrices
+using WoodburyMatrices
 
+include("diag.jl")
+include("blockmatrices.jl")
 include("kktsolvers.jl")
 
 ViewTypes   = Union{SubArray}
@@ -19,6 +20,7 @@ MatrixTypes = Union{Matrix, Array{Real,2},
 
 # returns 0 for matrices with dimension 0.
 normsafe(x) = isempty(x) ? 0 : norm(x)
+Id(n) = Diag(ones(n))
 
 # ──────────────────────────────────────────────────────────────
 #  3x1 block vector
@@ -42,7 +44,7 @@ function axpy4!(α::Number, x::v4x1, y::v4x1)
 end
 
 # ──────────────────────────────────────────────────────────────
-#  Linear operator representing a congurance transform of a
+#  Linear operator representing a congruence transform of a
 #  matrix in vectorized form
 # ──────────────────────────────────────────────────────────────
 

@@ -63,10 +63,10 @@ function lift(F::Block)
   IB, JB, VB = Int[], Int[], Float64[]
   ID, JD, VD = Int[], Int[], Float64[]
 
-  n = BlockMatrices.block_idx(F)[end][end]
+  n = block_idx(F)[end][end]
   Ir = 0   # Index of top right coordinate for expansion
 
-  for (In,Blk) = zip(BlockMatrices.block_idx(F), F.Blocks)
+  for (In,Blk) = zip(block_idx(F), F.Blocks)
 
     if isa(Blk, SymWoodbury)
 
