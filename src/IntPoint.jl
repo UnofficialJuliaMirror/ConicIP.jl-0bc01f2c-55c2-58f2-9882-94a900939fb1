@@ -1,6 +1,6 @@
 isdefined(Base, :__precompile__) && __precompile__()
 
-module IntPoint
+module IntPoint 
 
 export Id, intpoint, pivot, preprocess_intpoint, 
   IntPointSolver, Block
