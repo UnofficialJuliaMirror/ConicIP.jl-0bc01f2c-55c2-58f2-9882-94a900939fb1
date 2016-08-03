@@ -1,6 +1,6 @@
 module TestFactCheck
 
-using IntPoint
+using ConicIP
 
 import Base:*,+,\
 
@@ -12,7 +12,7 @@ FactCheck.setstyle(:default)
 global tol    = 1e-4
 global optTol = 1e-6
 
-facts("IntPoint module") do
+facts("ConicIP module") do
 
   srand(0)
 
@@ -47,7 +47,7 @@ facts("IntPoint module") do
       function solve2x2gen(F, F⁻¹)
         v = inv(F[1]*F[1]).diag
         D = Diagonal(v[1:n] + v[n+1:end])
-        invHD = inv(IntPoint.Diag(H.diag + D.diag));
+        invHD = inv(ConicIP.Diag(H.diag + D.diag));
         return (rhs, rhs2) -> (invHD*rhs, zeros(0,1));
       end
       return solve2x2gen
@@ -78,9 +78,9 @@ facts("IntPoint module") do
 
   end
 
-  for kktsolver = (IntPoint.kktsolver_qr, 
-                   IntPoint.kktsolver_sparse, 
-                   pivot(IntPoint.kktsolver_2x2))
+  for kktsolver = (ConicIP.kktsolver_qr, 
+                   ConicIP.kktsolver_sparse, 
+                   pivot(ConicIP.kktsolver_2x2))
 
     context("Projection onto Sphere") do
 
@@ -174,11 +174,11 @@ facts("IntPoint module") do
       G = ones(1,n)
       d = ones(1,1)
 
-      sol = IntPoint.intpoint(H,H*c,
-                              A,b,[("R",n)],
-                              G,d,
-                              kktsolver = kktsolver,                              
-                              optTol = optTol/100);
+      sol = intpoint(H,H*c,
+                     A,b,[("R",n)],
+                     G,d,
+                     kktsolver = kktsolver,                              
+                     optTol = optTol/100);
 
       ystar = sol.y
 
@@ -213,7 +213,7 @@ facts("IntPoint module") do
       G = ones(1,n)
       d = ones(1,1)
 
-      sol = IntPoint.intpoint(H,H*c,
+      sol = ConicIP.intpoint(H,H*c,
                               A,b,[("R",n)],
                               G,d,
                               kktsolver = kktsolver,
@@ -221,7 +221,7 @@ facts("IntPoint module") do
 
       ystar = sol.y
 
-      if kktsolver == IntPoint.kktsolver_sparse
+      if kktsolver == ConicIP.kktsolver_sparse
         println("Pivot")
         s = Dict(:status => :Optimal,
                  :prFeas => 4.488229069360946e-16,
@@ -254,7 +254,7 @@ facts("IntPoint module") do
       G = rand(6,n)
       d = zeros(6,1)
 
-      ystar = IntPoint.intpoint(
+      ystar = ConicIP.intpoint(
               H,H*c,
               A,b,[("R",n)],
               G,d,
@@ -278,13 +278,13 @@ facts("IntPoint module") do
       G = rand(6,n)
       d = zeros(6,1)
 
-      ystar1 = IntPoint.intpoint(H,H*c,
+      ystar1 = ConicIP.intpoint(H,H*c,
               A,b,[("R",n)],
               G,d,
               kktsolver = kktsolver,              
               optTol = optTol/100).y;
 
-      ystar2 = IntPoint.intpoint(H,H*c,
+      ystar2 = ConicIP.intpoint(H,H*c,
               [A; G; -G],[b; d; -d],[("R",(n + 2*6))],
               G,d,
               optTol = optTol/100).y;
@@ -303,7 +303,7 @@ facts("IntPoint module") do
       b = [ones(n,1); ones(n,1)]
       k = size(A,1)
 
-      sol= IntPoint.intpoint(H,H*c,
+      sol= ConicIP.intpoint(H,H*c,
                              A,b,[("R",2*n)],
                              kktsolver = kktsolver,                             
                              optTol = optTol/100);
@@ -326,7 +326,7 @@ facts("IntPoint module") do
 
       k = size(A,1)
 
-      sol= IntPoint.intpoint(H,H*c,
+      sol= ConicIP.intpoint(H,H*c,
                              A,b, [("R",n)],
                              G,d,
                              kktsolver = kktsolver,                             
@@ -345,7 +345,7 @@ facts("IntPoint module") do
       A = speye(n)
       b = zeros(n,1)
 
-      sol = IntPoint.intpoint(H,c,
+      sol = ConicIP.intpoint(H,c,
                               A,b,[("R",n)],
                               kktsolver = kktsolver,                              
                               optTol = optTol/100)
@@ -364,7 +364,7 @@ facts("IntPoint module") do
       b = zeros(n,1)
 
       try
-        sol = IntPoint.intpoint(H,c,
+        sol = ConicIP.intpoint(H,c,
                                 A,b,[("R",n)],
                                 kktsolver = kktsolver,                                
                                 optTol = optTol/100)
@@ -382,12 +382,12 @@ facts("IntPoint module") do
 
     n = 21;
     H = eye(n,n);
-    c = IntPoint.vecm(diagm([1;1;1;-1;-1;-1]))''
+    c = ConicIP.vecm(diagm([1;1;1;-1;-1;-1]))''
 
     A = speye(21)
     b = zeros(21,1)
 
-    sol = IntPoint.intpoint(H,c,
+    sol = ConicIP.intpoint(H,c,
                             A,b,[("S",n)],
                             optTol = optTol/100)
 
@@ -399,7 +399,7 @@ facts("IntPoint module") do
              :duFeas => 4.2341217602756234e-16,
              :Iter => 6)
 
-    @fact norm(IntPoint.mat(sol.y) - diagm([1;1;1;0;0;0]), Inf) --> less_than(tol)
+    @fact norm(ConicIP.mat(sol.y) - diagm([1;1;1;0;0;0]), Inf) --> less_than(tol)
     @fact compare(sol, s) --> true
             
   end

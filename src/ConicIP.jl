@@ -1,6 +1,6 @@
 isdefined(Base, :__precompile__) && __precompile__()
 
-module IntPoint 
+module ConicIP 
 
 export Id, intpoint, pivot, preprocess_intpoint, 
   IntPointSolver, Block
@@ -536,8 +536,8 @@ function intpoint(
 
     min_α = Inf;
     for (btype, I, i) = block_data
-      xI = sub(x,I)
-      dI = ( d == nothing ? nothing : sub(d,I) )
+      xI = view(x,I)
+      dI = ( d == nothing ? nothing : view(d,I) )
       if btype == "R"; α = maxstep_rp(xI,dI);  end
       if btype == "Q"; α = maxstep_soc(xI,dI); end
       if btype == "S"; α = maxstep_sdc(xI,dI); end
@@ -553,7 +553,7 @@ function intpoint(
     # Check if x is feasible
 
     for (btype, I, i) = block_data
-      xI = sub(x,I); yI = sub(y,I);
+      xI = view(x,I); yI = view(y,I);
       if btype == "R"; assert(x[I] > 0);                    end
       if btype == "Q"; assert(norm(x[I][2:end]) - x[I][1]); end
     end
@@ -568,7 +568,7 @@ function intpoint(
     B = Block(size(block_sizes,1));
 
     for (btype, I, i) = block_data
-      xI = sub(x,I); yI = sub(y,I);
+      xI = view(x,I); yI = view(y,I);
       if btype == "R"; B[i] = Diag(sqrt(yI./xI)); end
       if btype == "Q"; B[i] = nestod_soc(xI, yI); end
       if btype == "S"; B[i] = nestod_sdc(xI, yI); end
@@ -584,7 +584,7 @@ function intpoint(
 
     o = zeros(length(x),1)
     for (btype, I, i) = block_data
-      xI = sub(x,I); yI = sub(y,I); oI = sub(o,I)
+      xI = view(x,I); yI = view(y,I); oI = view(o,I)
       if btype == "R"; drp!(xI, yI, oI);  end
       if btype == "Q"; dsoc!(xI, yI, oI); end
       if btype == "S"; dsdc!(xI, yI, oI); end
@@ -599,7 +599,7 @@ function intpoint(
 
     o = zeros(length(x),1)
     for (btype, I, i) = block_data
-      xI = sub(x,I); yI = sub(y,I); oI = sub(o,I)
+      xI = view(x,I); yI = view(y,I); oI = view(o,I)
       if btype == "R"; xrp!(xI, yI, oI);  end
       if btype == "Q"; xsoc!(xI, yI, oI); end
       if btype == "S"; xsdc!(xI, yI, oI); end
@@ -828,7 +828,7 @@ function intpoint(
 
 end
 
-include("low_level_wrapper.jl")
+include("wrapper.jl")
 include("preprocessor.jl")
 
 end

@@ -91,7 +91,7 @@ function broadcastf(op::Function, A::Block, x::Vector)
   y = similar(x)
   i = 1
   for I = Task( () -> blockIter(A) )
-    xI = sub(x,I);
+    xI = view(x,I);
     y[I] = op(A.Blocks[i])
     i += 1;
   end
@@ -104,7 +104,7 @@ function broadcastf(op::Function, A::Block, X::Matrix)
   Y = similar(X)
   i = 1
   for I = Task( () -> blockIter(A) )
-    XI = sub(X,I,:);
+    XI = view(X,I,:);
     Y[I,:] = op(A.Blocks[i],XI)
     i += 1;
   end
@@ -163,8 +163,8 @@ function *(A::Block, X::Array{Float64,2})
   Y = similar(X)
   i = 1
   for I = Task( () -> blockIter(A) )
-    XI = sub(X,I,:)
-    #mult!(A.Blocks[i],XI,sub(Y,I,:))
+    XI = view(X,I,:)
+    #mult!(A.Blocks[i],XI,view(Y,I,:))
     Y[I,:] = *(A.Blocks[i],XI)
     i += 1;
   end
@@ -178,7 +178,7 @@ function Base.Ac_mul_B(A::Block, X::Array{Float64,2})
   Y = similar(X)
   i = 1
   for I = Task( () -> blockIter(A) )
-    XI = sub(X,I,:)
+    XI = view(X,I,:)
     Y[I,:] = Ac_mul_B(A.Blocks[i],XI)
     i += 1;
   end
