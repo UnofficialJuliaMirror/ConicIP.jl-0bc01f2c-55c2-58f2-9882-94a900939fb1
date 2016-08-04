@@ -309,9 +309,9 @@ end
 function optimize!(m::IntPointModel)
 
   if m.preprocess
-    m.sol = preprocess_intpoint(m.Q,m.c,m.A,m.b,m.cone_dims,m.G,m.d; m.options...)
+    m.sol = preprocess_conicIP(m.Q,m.c,m.A,m.b,m.cone_dims,m.G,m.d; m.options...)
   else
-    m.sol = intpoint(m.Q,m.c,m.A,m.b,m.cone_dims,m.G,m.d; m.options...)
+    m.sol = conicIP(m.Q,m.c,m.A,m.b,m.cone_dims,m.G,m.d; m.options...)
   end
 
   m.solve_stat = m.sol.status

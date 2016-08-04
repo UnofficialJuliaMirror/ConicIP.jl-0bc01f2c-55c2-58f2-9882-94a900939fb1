@@ -1,5 +1,7 @@
 import Base:+,*,-,\,^,getindex,setindex!,show,print
 
+using Compat:view
+
 # ****************************************************************
 # Square Block Diagonal Matrix
 # ****************************************************************

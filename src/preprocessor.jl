@@ -41,7 +41,7 @@ Rank condition              : rank(G) = size(G,1)
 Dual equality constraints   : [ Q A' G'] = c
 Rank condition              : rank([Q A' G']) = size(Q,1)
 """
-function preprocess_intpoint(Q, c::Matrix, 
+function preprocess_conicIP(Q, c::Matrix, 
   A, b::Matrix, cone_dims, 
   G = spzeros(0,length(c)), d = zeros(0,1); 
   verbose = false,
@@ -81,7 +81,7 @@ function preprocess_intpoint(Q, c::Matrix,
 
        # Augmented constraints
        #             |
-  sol = intpoint(Q + Z, c, A, b, cone_dims, G[IP,:], d[IP,: ]; 
+  sol = conicIP(Q + Z, c, A, b, cone_dims, G[IP,:], d[IP,: ]; 
     verbose = verbose,         #                   |
     options...)                # Removed redundant linear constraints 
                                # TODO : (use view?)

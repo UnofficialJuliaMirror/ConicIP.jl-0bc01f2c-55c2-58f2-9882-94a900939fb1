@@ -1,13 +1,13 @@
-IntPoint.jl: A Pure Julia Conic QP Solver
+ConicIP.jl: A Pure Julia Conic QP Solver
 ==
 
-Intpoint is an interior point solver inspired by [cvxopt](http://cvxopt.org/) for quadratic programs with polyhedral (here denoted `𝑅`) and second order cone (denoted `𝑄`) constraints. Since `Intpoint` is written in Julia, it allows abstract input and allows callbacks for it's most computationaly intensive internal routines.
+`ConicIP` is an interior point solver inspired by [cvxopt](http://cvxopt.org/) for quadratic programs with polyhedral (here denoted `𝑅`) and second order cone (denoted `𝑄`) constraints. Since `ConicIP` is written in Julia, it allows abstract input and allows callbacks for it's most computationaly intensive internal routines.
 
 #### Basic Usage
 
-Intpoint has the interface
+ConicIP has the interface
 ```julia
-Sol = intpoint( Q , c , A , b , 𝐾 , G , d )
+Sol = conicIP( Q , c , A , b , 𝐾 , G , d )
 ```
 For the problem
 ```
@@ -22,7 +22,7 @@ s.t         Ay ≧𝐾 b,  𝐾 = 𝐾₁  × ⋯ × 𝐾ⱼ
 𝐾 = [ ("R",2) , ("Q",3),  ("R",2) ]
 ```
 
-Intpoint returns `Sol`, a structure containing error information (`Sol.status`), the primal variables (`Sol.y`), dual variables (`Sol.v`, `Sol.w`), and convergence information.
+ConicIP returns `Sol`, a structure containing error information (`Sol.status`), the primal variables (`Sol.y`), dual variables (`Sol.v`, `Sol.w`), and convergence information.
 
 To solve the problem
 
@@ -31,10 +31,10 @@ minimize    ½yᵀQy - cᵀy
 s.t.        y ≧ 0
 ```
 
-for example, use `IntPoint` as follows
+for example, use `ConicIP` as follows
 
-```
-using IntPoint
+```julia
+using ConicIP
 
 n = 1000
 
@@ -45,23 +45,23 @@ A = speye(n);
 b = zeros(n,1);
 𝐾 = [("R",n)];
 
-sol = intpoint( Q , c , A , b , 𝐾 , verbose = true);
+sol = conicIP( Q , c , A , b , 𝐾 , verbose = true);
 ```
 
 For a more detailed example involving callback functions, refer to this
-[notebook](https://cdn.rawgit.com/MPF-Optimization-Laboratory/IntPoint.jl/master/examples/callback.html).
+[notebook](https://cdn.rawgit.com/MPF-Optimization-Laboratory/ConicIP.jl/master/examples/callback.html).
 
 ### Usage with modelling libraries
 
-IntPoint is integrated with [MathProgBase](https://github.com/JuliaOpt/MathProgBase.jl) and can be used as a solver in [JuMP](https://github.com/JuliaOpt/JuMP.jl) and [Convex](https://github.com/JuliaOpt/Convex.jl).
+ConicIP is integrated with [MathProgBase](https://github.com/JuliaOpt/MathProgBase.jl) and can be used as a solver in [JuMP](https://github.com/JuliaOpt/JuMP.jl) and [Convex](https://github.com/JuliaOpt/Convex.jl).
 
 #### JuMP.jl
 
 ```julia
 using JuMP
-using IntPoint
+using ConicIP
 
-m = Model(solver = IntPointSolver())
+m = Model(solver = ConicIPSolver())
 @variable(m, x[1:10] >= 0)
 @constraint(m, sum(x) == 1.0)
 @objective(m, Min, sum(x))
@@ -73,9 +73,9 @@ getvalue(x) # should be [0.1 0.1 ⋯ 0.1]
 
 ```julia
 using Convex
-using IntPoint
+using ConicIP
 
-set_default_solver(IntPointSolver())
+set_default_solver(ConicIPSolver())
 x = Variable(10)
 p = minimize( sum(x), [x >= 0, sum(x) == 1])
 solve!(p)

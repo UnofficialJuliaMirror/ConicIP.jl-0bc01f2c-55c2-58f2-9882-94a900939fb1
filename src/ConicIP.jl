@@ -2,12 +2,13 @@ isdefined(Base, :__precompile__) && __precompile__()
 
 module ConicIP 
 
-export Id, intpoint, pivot, preprocess_intpoint, 
+export Id, conicIP, pivot, preprocess_conicIP, 
   IntPointSolver, Block
 
 import Base:+,*,-,\,^
 using Base.LinAlg.BLAS:axpy!,scal!
 using WoodburyMatrices
+using Compat:view
 
 include("diag.jl")
 include("blockmatrices.jl")
@@ -373,7 +374,7 @@ type Solution
 end
 
 """
-  intpoint(Q, c, A, b, cone_dims, G, d; 
+  conicIP(Q, c, A, b, cone_dims, G, d; 
   solve3x3gen = solve3x3gen_sparse,
   optTol = 1e-5,           
   DTB = 0.01,             
@@ -440,7 +441,7 @@ solves the system
 └                     ┘ └   ┘   └   ┘
 ```
 """
-function intpoint(
+function conicIP(
 
   # ½xᵀQx - cᵀx
   Q, c::Matrix,

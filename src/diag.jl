@@ -5,6 +5,7 @@
 # NOTE: we do not extend Diagonal to avoid contaminating the base
 # NOTE: Julia 0.5 has all the functionality needed here. Can
 # 		replace with the generic Diagonal once it comes out.
+#       I'm looking forward to getting rid of this forever.
 #
 # ──────────────────────────────────────────────────────────────
 

@@ -54,7 +54,7 @@ facts("ConicIP module") do
       
     end
 
-    sol = intpoint(H,H*c,A,b,[("R",2*n)],
+    sol = conicIP(H,H*c,A,b,[("R",2*n)],
                    kktsolver = pivot(kktsolver_2x2),
                    optTol = optTol,
                    DTB = 0.01,
@@ -96,11 +96,11 @@ facts("ConicIP module") do
       A = [spzeros(1,n); speye(n)];
       b = [-1;zeros(n,1)];
 
-      sol = intpoint(H,H*a,A,b,[("Q",n+1)],
-                     optTol = optTol,
-                     DTB = 0.01,
-                     kktsolver = kktsolver,
-                     maxRefinementSteps = 3);
+      sol = conicIP(H,H*a,A,b,[("Q",n+1)],
+                    optTol = optTol,
+                    DTB = 0.01,
+                    kktsolver = kktsolver,
+                    maxRefinementSteps = 3);
 
       ystar = sol.y
 
@@ -134,11 +134,11 @@ facts("ConicIP module") do
            -1.        ;
            zeros(n,1)];
 
-      sol = intpoint(H,H*c,A,b,[("R",n),("Q",n+1)],
-                     optTol = optTol,
-                     DTB = 0.01,
-                     kktsolver = kktsolver,                     
-                     maxRefinementSteps = 3);
+      sol = conicIP(H,H*c,A,b,[("R",n),("Q",n+1)],
+                    optTol = optTol,
+                    DTB = 0.01,
+                    kktsolver = kktsolver,                     
+                    maxRefinementSteps = 3);
 
       ystar = sol.y
 
@@ -174,11 +174,11 @@ facts("ConicIP module") do
       G = ones(1,n)
       d = ones(1,1)
 
-      sol = intpoint(H,H*c,
-                     A,b,[("R",n)],
-                     G,d,
-                     kktsolver = kktsolver,                              
-                     optTol = optTol/100);
+      sol = conicIP(H,H*c,
+                    A,b,[("R",n)],
+                    G,d,
+                    kktsolver = kktsolver,                              
+                    optTol = optTol/100);
 
       ystar = sol.y
 
@@ -213,11 +213,11 @@ facts("ConicIP module") do
       G = ones(1,n)
       d = ones(1,1)
 
-      sol = ConicIP.intpoint(H,H*c,
-                              A,b,[("R",n)],
-                              G,d,
-                              kktsolver = kktsolver,
-                              optTol = optTol/100);
+      sol = ConicIP.conicIP(H,H*c,
+                            A,b,[("R",n)],
+                            G,d,
+                            kktsolver = kktsolver,
+                            optTol = optTol/100);
 
       ystar = sol.y
 
@@ -254,12 +254,11 @@ facts("ConicIP module") do
       G = rand(6,n)
       d = zeros(6,1)
 
-      ystar = ConicIP.intpoint(
-              H,H*c,
-              A,b,[("R",n)],
-              G,d,
-              kktsolver = kktsolver,
-              optTol = optTol/100).y;
+      ystar = conicIP(H,H*c,
+                      A,b,[("R",n)],
+                      G,d,
+                      kktsolver = kktsolver,
+                      optTol = optTol/100).y;
 
       ysol  = zeros(n,1); ysol[n] = 1;
 
@@ -278,16 +277,16 @@ facts("ConicIP module") do
       G = rand(6,n)
       d = zeros(6,1)
 
-      ystar1 = ConicIP.intpoint(H,H*c,
-              A,b,[("R",n)],
-              G,d,
-              kktsolver = kktsolver,              
-              optTol = optTol/100).y;
+      ystar1 = conicIP(H,H*c,
+                       A,b,[("R",n)],
+                       G,d,
+                       kktsolver = kktsolver,              
+                       optTol = optTol/100).y;
 
-      ystar2 = ConicIP.intpoint(H,H*c,
-              [A; G; -G],[b; d; -d],[("R",(n + 2*6))],
-              G,d,
-              optTol = optTol/100).y;
+      ystar2 = conicIP(H,H*c,
+                       [A; G; -G],[b; d; -d],[("R",(n + 2*6))],
+                       G,d,
+                       optTol = optTol/100).y;
 
       @fact norm(ystar1 - ystar2) --> less_than(tol)
 
@@ -303,10 +302,10 @@ facts("ConicIP module") do
       b = [ones(n,1); ones(n,1)]
       k = size(A,1)
 
-      sol= ConicIP.intpoint(H,H*c,
-                             A,b,[("R",2*n)],
-                             kktsolver = kktsolver,                             
-                             optTol = optTol/100);
+      sol= conicIP(H,H*c,
+                   A,b,[("R",2*n)],
+                   kktsolver = kktsolver,                             
+                   optTol = optTol/100);
 
       @fact sol.status --> :Infeasible
 
@@ -326,11 +325,11 @@ facts("ConicIP module") do
 
       k = size(A,1)
 
-      sol= ConicIP.intpoint(H,H*c,
-                             A,b, [("R",n)],
-                             G,d,
-                             kktsolver = kktsolver,                             
-                             optTol = optTol/100);
+      sol= conicIP(H,H*c,
+                   A,b, [("R",n)],
+                   G,d,
+                   kktsolver = kktsolver,                             
+                   optTol = optTol/100);
 
       @fact sol.status --> :Infeasible
 
@@ -345,10 +344,10 @@ facts("ConicIP module") do
       A = speye(n)
       b = zeros(n,1)
 
-      sol = ConicIP.intpoint(H,c,
-                              A,b,[("R",n)],
-                              kktsolver = kktsolver,                              
-                              optTol = optTol/100)
+      sol = conicIP(H,c,
+                    A,b,[("R",n)],
+                    kktsolver = kktsolver,                              
+                    optTol = optTol/100)
 
       @fact sol.status --> :DualInfeasible
 
@@ -364,10 +363,10 @@ facts("ConicIP module") do
       b = zeros(n,1)
 
       try
-        sol = ConicIP.intpoint(H,c,
-                                A,b,[("R",n)],
-                                kktsolver = kktsolver,                                
-                                optTol = optTol/100)
+        sol = conicIP(H,c,
+                      A,b,[("R",n)],
+                      kktsolver = kktsolver,                                
+                      optTol = optTol/100)
       catch
         @fact 1 --> 1
       end
@@ -387,9 +386,9 @@ facts("ConicIP module") do
     A = speye(21)
     b = zeros(21,1)
 
-    sol = ConicIP.intpoint(H,c,
-                            A,b,[("S",n)],
-                            optTol = optTol/100)
+    sol = conicIP(H,c,
+                  A,b,[("S",n)],
+                  optTol = optTol/100)
 
 
     s = Dict(:status => :Optimal,
