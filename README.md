@@ -1,7 +1,7 @@
 ConicIP.jl: A Pure Julia Conic QP Solver
 ==
 
-`ConicIP` is an interior point solver inspired by [cvxopt](http://cvxopt.org/) for quadratic programs with polyhedral (here denoted `𝑅`) and second order cone (denoted `𝑄`) constraints. Since `ConicIP` is written in Julia, it allows abstract input and allows callbacks for it's most computationaly intensive internal routines.
+`ConicIP` (IP stands for Interior Point, *not* Integer Programming) is an interior point solver inspired by [cvxopt](http://cvxopt.org/) for quadratic programs with polyhedral (here denoted `𝑅`) and second order cone (denoted `𝑄`) constraints. Since `ConicIP` is written in Julia, it allows abstract input and allows callbacks for it's most computationaly intensive internal routines.
 
 #### Basic Usage
 
