@@ -5,13 +5,13 @@ AND make sure it returns the right answer.
 
 module MathProgBaseTest
 
-using IntPoint
+using ConicIP
 using MathProgBase
 
 Pkg.installed("MathProgBase")
 include(Pkg.dir("MathProgBase")"/test/conicinterface.jl"); 
-coniclineartest(IntPointSolver(verbose = false))
-conicSDPtest(IntPointSolver(verbose = false, optTol = 1e-6))
+coniclineartest(ConicIPSolver(verbose = false))
+conicSDPtest(ConicIPSolver(verbose = false, optTol = 1e-6))
 
 end
 # Convex.jl Tests
@@ -27,10 +27,10 @@ end
 
 if installed
 
-	using IntPoint
+	using ConicIP
 	using Convex; 
 
-	set_default_solver(IntPointSolver(verbose = false, optTol = 1e-6))
+	set_default_solver(ConicIPSolver(verbose = false, optTol = 1e-6))
 	include(Pkg.dir("Convex")"/test/runtests_single_solver.jl")
 
 end
@@ -53,14 +53,14 @@ end
 if installed
 
 	using JuMP
-	using IntPoint
+	using ConicIP
 	using FactCheck
 	using MathProgBase
 
-	solvers = [IntPointSolver(verbose = false, optTol = 1e-6)]
-	sdp_solvers = [IntPointSolver(verbose = false, optTol = 1e-6)]
-	conic_solvers_with_duals = [IntPointSolver(verbose = false, optTol = 1e-6)]
-	lp_solvers = [IntPointSolver(verbose = false, optTol = 1e-6)]
+	solvers = [ConicIPSolver(verbose = false, optTol = 1e-6)]
+	sdp_solvers = [ConicIPSolver(verbose = false, optTol = 1e-6)]
+	conic_solvers_with_duals = [ConicIPSolver(verbose = false, optTol = 1e-6)]
+	lp_solvers = [ConicIPSolver(verbose = false, optTol = 1e-6)]
 	ip_solvers = []
 	JuUMPdir = Pkg.dir("JuMP")
 

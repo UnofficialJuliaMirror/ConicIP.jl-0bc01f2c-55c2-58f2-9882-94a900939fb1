@@ -13,28 +13,28 @@ import Base.convert
 # http://mathprogbasejl.readthedocs.org/en/latest/solverinterface.html
 #
 
-immutable IntPointSolver <: AbstractMathProgSolver
+immutable ConicIPSolver <: AbstractMathProgSolver
   preprocess
   options
 end
 
-IntPointSolver(;equalities_as_double_inequalities = false,
+ConicIPSolver(;equalities_as_double_inequalities = false,
                 preprocess = true,
                 kwargs...) = 
-                IntPointSolver( preprocess, 
+                ConicIPSolver( preprocess, 
                                 kwargs )
 
 """
-Type which encapsulates a IntPoint model, and a way to convert
+Type which encapsulates a ConicIP model, and a way to convert
 its output into a MPB model
 
 minimize    ½yᵀQy - cᵀy
 s.t         Ay >= b
             Gy  = d
 """
-type IntPointModel <: AbstractConicModel
+type ConicIPModel <: AbstractConicModel
 
-    # Parameters to be passed into IntPoint
+    # Parameters to be passed into ConicIP
 
     Q           ::AbstractMatrix
     c           ::AbstractMatrix
@@ -92,7 +92,7 @@ function signed_assign!(x, y, I, J)
   x[I[!P]] = -y[-J[!P]]
 end
 
-ConicModel(s::IntPointSolver) = IntPointModel(
+ConicModel(s::ConicIPSolver) = ConicIPModel(
   zeros(0,0), 
   zeros(0,0), 
   zeros(0,0), 
@@ -120,20 +120,20 @@ ConicModel(s::IntPointSolver) = IntPointModel(
   s.preprocess,
   s.options)
 
-LinearQuadraticModel(s::IntPointSolver) = ConicToLPQPBridge(ConicModel(s))
-status(m::IntPointModel)                = m.solve_stat
-getobjval(m::IntPointModel)             = m.obj_val
-getsolution(m::IntPointModel)           = copy(m.primal_sol)
-numvar(m::IntPointModel)                = m.input_numvar
-numconstr(m::IntPointModel)             = m.input_numconstr
-supportedcones(s::IntPointSolver)       = [:Free, 
+LinearQuadraticModel(s::ConicIPSolver)  = ConicToLPQPBridge(ConicModel(s))
+status(m::ConicIPModel)                = m.solve_stat
+getobjval(m::ConicIPModel)             = m.obj_val
+getsolution(m::ConicIPModel)           = copy(m.primal_sol)
+numvar(m::ConicIPModel)                = m.input_numvar
+numconstr(m::ConicIPModel)             = m.input_numconstr
+supportedcones(s::ConicIPSolver)        = [:Free, 
                                            :Zero, 
                                            :NonNeg, 
                                            :NonPos, 
                                            :SOC,
                                            :SDP]
 
-function show(m::IntPointModel)
+function show(m::ConicIPModel)
 
   println("Q = ",full(m.Q))
   println("c = ",m.c)
@@ -145,7 +145,7 @@ function show(m::IntPointModel)
   
 end
 
-function loadproblem!(m::IntPointModel, c, 
+function loadproblem!(m::ConicIPModel, c, 
   A_, b_, constr_cones, var_cones)
 
   n = size(A_, 2)
@@ -306,7 +306,7 @@ function loadproblem!(m::IntPointModel, c,
 
 end
 
-function optimize!(m::IntPointModel)
+function optimize!(m::ConicIPModel)
 
   if m.preprocess
     m.sol = preprocess_conicIP(m.Q,m.c,m.A,m.b,m.cone_dims,m.G,m.d; m.options...)
@@ -329,5 +329,5 @@ function optimize!(m::IntPointModel)
 
 end
 
-getdual(m::IntPointModel)    = m.dual_sol
-getvardual(m::IntPointModel) = m.vardual_sol
+getdual(m::ConicIPModel)    = m.dual_sol
+getvardual(m::ConicIPModel) = m.vardual_sol

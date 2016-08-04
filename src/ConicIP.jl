@@ -3,7 +3,7 @@ isdefined(Base, :__precompile__) && __precompile__()
 module ConicIP 
 
 export Id, conicIP, pivot, preprocess_conicIP, 
-  IntPointSolver, Block
+  ConicIPSolver, Block
 
 import Base:+,*,-,\,^
 using Base.LinAlg.BLAS:axpy!,scal!
