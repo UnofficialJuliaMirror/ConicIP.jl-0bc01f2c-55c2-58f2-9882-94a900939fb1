@@ -57,15 +57,15 @@ type ConicIPModel <: AbstractConicModel
     # Bookkeeping for indicies, so we can figure out what
     # the dual variables are.
 
-    I_Al        ::Vector{Integer}
-    I_Gl        ::Vector{Integer}
-    I_A         ::Vector{Integer}
-    I_G         ::Vector{Integer}
+    I_Al        ::Vector{Int64}
+    I_Gl        ::Vector{Int64}
+    I_A         ::Vector{Int64}
+    I_G         ::Vector{Int64}
 
-    I_vAl       ::Vector{Integer}
-    I_vGl       ::Vector{Integer}
-    I_vA        ::Vector{Integer}
-    I_vG        ::Vector{Integer}
+    I_vAl       ::Vector{Int64}
+    I_vGl       ::Vector{Int64}
+    I_vA        ::Vector{Int64}
+    I_vG        ::Vector{Int64}
 
     # Number of constraints and varconstraints
     n_constr
