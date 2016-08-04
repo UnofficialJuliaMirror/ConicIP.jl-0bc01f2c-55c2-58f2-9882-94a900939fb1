@@ -114,16 +114,6 @@ function broadcastf(op::Function, A::Block, X::Matrix)
 
 end
 
-function reduce(op::Function, A::Block)
-
-  α = 0;
-  for I = Task( () -> blockIter(A) )
-    α = α + op(A.Blocks[i])
-  end
-  return α;
-
-end
-
 function Base.sparse(A::Block)
 
   I₊, J₊, V₊ = Int[], Int[], Float64[]
@@ -196,7 +186,6 @@ Base.inv(A::Block)         = broadcastf(inv, A)
 -(A::Block)                = broadcastf(-, A)
 Base.ctranspose(A::Block)  = broadcastf(ctranspose, A)
 *(A::Block, B::Block)      = broadcastf(*, A, B)
-Base.norm(A::Block)        = reduce(norm, A)
 Base.Ac_mul_B(A::Block, B::Block) = broadcastf(Ac_mul_B, A, B)
 
 ViewTypes = Union{SubArray}

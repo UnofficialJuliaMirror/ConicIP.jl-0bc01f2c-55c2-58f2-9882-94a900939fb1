@@ -32,6 +32,40 @@ facts("ConicIP module") do
             
   end
 
+  context("Block Tests") do
+
+    A = Block(3);
+    A[1] = rand(4,4)
+    A[2] = rand(3,3)
+    A[3] = rand(2,2)
+
+    B = Block(3);
+    B[1] = rand(4,4)
+    B[2] = rand(3,3)
+    B[3] = rand(2,2)
+
+    @fact size(A) --> (9,9)
+    @fact size(A,1) --> 9
+    @fact size(A,2) --> 9
+
+    @fact size(B) --> (9,9)
+    @fact size(B,1) --> 9
+    @fact size(B,2) --> 9
+
+    @fact full(A*B) --> roughly(full(A)*full(B));
+    @fact full(A+B) --> roughly(full(A)+full(B));
+    @fact full(A^2) --> roughly(full(A)^2);
+
+    @fact full(A-B) --> roughly(full(A)-full(B));
+
+    Ad = deepcopy(A)
+    Ad[1] = zeros(4,4)
+
+    @fact A[1] --> not(exactly(zeros(4,4)))
+
+    @fact full(Diagonal(ones(9)) + A) --> roughly(full(Diagonal(ones(9))) + full(A))
+  end
+
   context("Box Constrained QP, H = I") do
 
     n = 1000;
@@ -322,6 +356,32 @@ facts("ConicIP module") do
 
     end    
 
+
+    context("Preprocessor Test - Infeasible") do
+
+      n = 10;
+      H = randn(n); H = H*H'
+      c = (1:n)''
+
+      A = speye(n)
+      b = zeros(n,1);
+      k = size(A,1)
+
+      G = zeros(1,n)
+      G[1,1] = 1
+      G = [G;G]
+      d = [1;-1]''
+
+      ystatus = preprocess_conicIP(H,H*c,
+                       A,b,[("R",n)],
+                       G,d,
+                       kktsolver = kktsolver,              
+                       optTol = optTol/100).status;
+
+      @fact ystatus == :Infeasible
+
+    end    
+
     context("Infeasible") do
 
       n = 10;
@@ -433,6 +493,24 @@ facts("ConicIP module") do
             
   end
 
+  context("MathProgBase SOC Cone") do
+    
+    m = MathProgBase.ConicModel(ConicIPSolver(verbose = true, 
+      optTol = 1e-6))
+    MathProgBase.loadproblem!(m,
+    [ 1.0,  1.0,  1.0,  1.0],
+    [ 1.0   0.0   0.0   0.0;
+      0.0   1.0   0.0   0.0;
+      0.0   0.0   1.0   0.0],
+    [1.0, 0.0, 0.0],
+    [(:Zero,1:3)],
+    [(:NonNeg,1:4)])
+    MathProgBase.optimize!(m)
+    MathProgBase.status(m)
+    show(m)
+
+    @fact m.primal_sol --> roughly([1;0;0;0])
+  end
 
 end
 
@@ -440,7 +518,7 @@ using MathProgBase
 
 # Run MathProgBase Tests
 include(Pkg.dir("MathProgBase")"/test/conicinterface.jl"); 
-coniclineartest(ConicIPSolver(verbose = false))
+coniclineartest(ConicIPSolver(verbose = true))
 conicSDPtest(ConicIPSolver(verbose = false, optTol = 1e-6))
 
 end # module
