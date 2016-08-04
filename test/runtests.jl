@@ -525,7 +525,7 @@ facts("ConicIP module") do
   context("MathProgBase SOC Cone") do
     
     srand(0)
-    
+
     m = MathProgBase.ConicModel(ConicIPSolver(verbose = true, 
       optTol = 1e-6))
     MathProgBase.loadproblem!(m,
@@ -534,13 +534,13 @@ facts("ConicIP module") do
       0.0   1.0   0.0   0.0;
       0.0   0.0   1.0   0.0],
     [1.0, 0.0, 0.0],
-    [(:Zero,1:3)],
+    [(:Soc,1:3)],
     [(:NonNeg,1:4)])
     MathProgBase.optimize!(m)
     MathProgBase.status(m)
     show(m)
 
-    @fact m.primal_sol --> roughly([1;0;0;0])
+    @fact norm(m.primal_sol) --> less_than(tol)
   end
 
 end

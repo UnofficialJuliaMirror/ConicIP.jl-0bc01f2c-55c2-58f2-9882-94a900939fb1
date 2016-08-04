@@ -30,8 +30,6 @@ Id(n) = Diag(ones(n))
 type v4x1; y::Matrix; w::Matrix; v::Matrix; s::Matrix; end
 
 +(a::v4x1, b::v4x1) = v4x1(a.y + b.y, a.w + b.w, a.v + b.v, a.s + b.s)
-*(α::Real, a::v4x1) = v4x1(α*a.y, α*a.w, α*a.v, α*a.s);
--(a::v4x1)          = v4x1(-a.y, -a.w, -a.v, -a.s);
 -(a::v4x1, b::v4x1) = v4x1(a.y - b.y, a.w - b.w, a.v - b.v, a.s - b.s)
 Base.norm(a::v4x1)  = norm(a.y) + normsafe(a.w) + normsafe(a.v) + normsafe(a.s) 
 Base.println(z::v4x1)  = println("y: ", z.y',
@@ -52,7 +50,6 @@ end
 type VecCongurance; R :: Matrix; end
 
 *(W::VecCongurance, x::VectorTypes)    = vecm(W.R'*mat(x)*W.R)
-\(W::VecCongurance, x::VectorTypes)    = inv(W)*x
 Base.ctranspose(W::VecCongurance)      = VecCongurance(W.R');
 Base.inv(W::VecCongurance)             = VecCongurance(inv(W.R))
 Base.size(W::VecCongurance, i)         = round(Int, size(W.R,1)*(size(W.R,1)+1)/2)
@@ -185,28 +182,28 @@ function nestod_sdc(z,s)
 
 end
 
-function nestod_sdc_sym(z,s)
+# function nestod_sdc_sym(z,s)
 
-  # Symmetric Nesterov-Todd Scaling Matrix for the Semidefinite
-  # Cone.
+#   # Symmetric Nesterov-Todd Scaling Matrix for the Semidefinite
+#   # Cone.
 
-  Z  = mat(z); S  = mat(s); Sq = S^(0.5)
-  (U,S,V) = svd(Sq*Z*Sq)
-  E = U*spdiagm(1./sqrt(abs(S)))*U'
-  R = Sq'*(E)*Sq
-  (U,S,V) = svd(R)
-  R = U*spdiagm(sqrt(abs(S)))*U'
-  return VecCongurance(R)
+#   Z  = mat(z); S  = mat(s); Sq = S^(0.5)
+#   (U,S,V) = svd(Sq*Z*Sq)
+#   E = U*spdiagm(1./sqrt(abs(S)))*U'
+#   R = Sq'*(E)*Sq
+#   (U,S,V) = svd(R)
+#   R = U*spdiagm(sqrt(abs(S)))*U'
+#   return VecCongurance(R)
 
-  # (Us,Ss,Vs) = svd(S)
-  # (Uz,Sz,Vz) = svd(Z)
+#   # (Us,Ss,Vs) = svd(S)
+#   # (Uz,Sz,Vz) = svd(Z)
 
-  # Ss = Us*spdiagm(Ss.^(0.125))*Vs'
-  # Zz = Uz*spdiagm(Sz.^(-0.25))*Vz'
-  # return VecCongurance(Ss*Zz*Ss)
-#  return VecCongurance(S^(0.125)*Z^(-0.25)*S^(0.125))
+#   # Ss = Us*spdiagm(Ss.^(0.125))*Vs'
+#   # Zz = Uz*spdiagm(Sz.^(-0.25))*Vz'
+#   # return VecCongurance(Ss*Zz*Ss)
+# #  return VecCongurance(S^(0.125)*Z^(-0.25)*S^(0.125))
 
-end
+# end
 
 function maxstep_rp(x,d)
 
