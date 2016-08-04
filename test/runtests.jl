@@ -222,13 +222,12 @@ facts("ConicIP module") do
       ystar = sol.y
 
       if kktsolver == ConicIP.kktsolver_sparse
-        println("Pivot")
         s = Dict(:status => :Optimal,
                  :prFeas => 4.488229069360946e-16,
                  :Mu => 2.1436595135398927e-8,
                  :muFeas => 3.000777220457259e-9,
                  :duFeas => 6.279962324264275e-17,
-                 :Iter => 7)
+                 :Iter => 8)
       else
         s = Dict(:status => :Optimal,
                  :prFeas => 4.488229069360946e-16,
@@ -291,6 +290,37 @@ facts("ConicIP module") do
       @fact norm(ystar1 - ystar2) --> less_than(tol)
 
     end
+
+
+    context("Preprocessor Test - Add redundant constraints") do
+
+      n = 10;
+      H = randn(n); H = H*H'
+      c = (1:n)''
+
+      A = speye(n)
+      b = zeros(n,1);
+      k = size(A,1)
+
+      G = rand(6,n)
+      G = [G;G]
+      d = zeros(6,1)
+      d = [d;d]
+
+      ystar1 = preprocess_conicIP(H,H*c,
+                       A,b,[("R",n)],
+                       G,d,
+                       kktsolver = kktsolver,              
+                       optTol = optTol/100).y;
+
+      ystar2 = preprocess_conicIP(H,H*c,
+                       [A; G; -G],[b; d; -d],[("R",(n + 4*6))],
+                       G,d,
+                       optTol = optTol/100).y;
+
+      @fact norm(ystar1 - ystar2) --> less_than(tol)
+
+    end    
 
     context("Infeasible") do
 
@@ -403,6 +433,14 @@ facts("ConicIP module") do
             
   end
 
+
 end
+
+using MathProgBase
+
+# Run MathProgBase Tests
+include(Pkg.dir("MathProgBase")"/test/conicinterface.jl"); 
+coniclineartest(ConicIPSolver(verbose = false))
+conicSDPtest(ConicIPSolver(verbose = false, optTol = 1e-6))
 
 end # module

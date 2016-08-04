@@ -32,7 +32,7 @@ function imcols(A, b; ϵ = 1e-10)
 end
 
 """
-Intpoint with preprocessing to ensure the following 
+ConicIP with preprocessing to ensure the following 
 rank constraints
 
 Primal equailty constraints : Gx = d
@@ -61,7 +61,7 @@ function preprocess_conicIP(Q, c::Matrix,
   (ID, dconsistent) = imcols([Q A' G[IP,:]'], c)
 
   if !(pconsistent && dconsistent)
-    return IntPoint.Solution(zeros(n,1)/0, zeros(p,1)/0,zeros(m,1)/0, 
+    return ConicIP.Solution(zeros(n,1)/0, zeros(p,1)/0,zeros(m,1)/0, 
       :Infeasible, 0, NaN, NaN, NaN, NaN)
   end
 
