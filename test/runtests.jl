@@ -1,6 +1,7 @@
 module TestFactCheck
 
 using ConicIP
+using MathProgBase
 
 import Base:*,+,\
 
@@ -68,6 +69,8 @@ facts("ConicIP module") do
 
   context("Box Constrained QP, H = I") do
 
+    srand(0)
+
     n = 1000;
     H = 0.5*Id(n)
     c = (1:n)''
@@ -118,6 +121,8 @@ facts("ConicIP module") do
 
     context("Projection onto Sphere") do
 
+      srand(0)
+
       # minimize (1/2)‖x - a‖² subject to ‖x|‖₂ < 1
       #
       # (transformed to)
@@ -155,6 +160,8 @@ facts("ConicIP module") do
     end
 
     context("Combined") do
+  
+      srand(0)
 
       n = 10;
       H = Id(n);
@@ -197,6 +204,8 @@ facts("ConicIP module") do
 
     context("Projection onto simplex (Linear Equality Test)") do
 
+      srand(0)
+
       n = 10;
       H = eye(n)
       c = (1:n)''
@@ -235,6 +244,8 @@ facts("ConicIP module") do
     end
 
     context("Projection onto simplex, dense H") do
+
+      srand(0)
 
       n = 10;
       H = randn(n); H = H*H'
@@ -276,6 +287,8 @@ facts("ConicIP module") do
 
     context("Projection onto simplex, dense H, Random Projection") do
 
+      srand(0)
+
       n = 10;
       H = randn(n); H = H*H'
       c = (1:n)''
@@ -298,6 +311,8 @@ facts("ConicIP module") do
     end
 
     context("Linear Constraints Comparison") do
+
+      srand(0)
 
       n = 10;
       H = randn(n); H = H*H'
@@ -327,6 +342,8 @@ facts("ConicIP module") do
 
 
     context("Preprocessor Test - Add redundant constraints") do
+      
+      srand(0)
 
       n = 10;
       H = randn(n); H = H*H'
@@ -359,6 +376,8 @@ facts("ConicIP module") do
 
     context("Preprocessor Test - Infeasible") do
 
+      srand(0)
+
       n = 10;
       H = randn(n); H = H*H'
       c = (1:n)''
@@ -378,11 +397,13 @@ facts("ConicIP module") do
                        kktsolver = kktsolver,              
                        optTol = optTol/100).status;
 
-      @fact ystatus == :Infeasible
+      @fact ystatus --> :Infeasible
 
     end    
 
     context("Infeasible") do
+
+      srand(0)
 
       n = 10;
       H = randn(n); H = H*H'
@@ -402,6 +423,8 @@ facts("ConicIP module") do
     end
 
     context("Infeasible (With linear constraints)") do
+
+      srand(0)
 
       n = 10;
       H = randn(n); H = H*H'
@@ -427,6 +450,8 @@ facts("ConicIP module") do
 
     context("Unbounded") do
 
+      srand(0)
+
       n = 10;
       H = zeros(n,n);
       c = (1:n)''
@@ -444,6 +469,8 @@ facts("ConicIP module") do
     end
 
     context("Bad Input") do
+
+      srand(0)
 
       n = 10;
       H = zeros(n,n);
@@ -466,6 +493,8 @@ facts("ConicIP module") do
   end
 
   context("SDP - Projection onto PSD Matrix") do
+
+    srand(0)
 
     # Implement This
 
@@ -494,6 +523,8 @@ facts("ConicIP module") do
   end
 
   context("MathProgBase SOC Cone") do
+    
+    srand(0)
     
     m = MathProgBase.ConicModel(ConicIPSolver(verbose = true, 
       optTol = 1e-6))
