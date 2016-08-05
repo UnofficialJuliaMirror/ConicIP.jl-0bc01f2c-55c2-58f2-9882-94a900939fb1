@@ -21,7 +21,6 @@ MatrixTypes = Union{Matrix, Array{Real,2},
 
 # returns 0 for matrices with dimension 0.
 normsafe(x) = isempty(x) ? 0 : norm(x)
-Id(n) = Diag(ones(n))
 
 # ──────────────────────────────────────────────────────────────
 #  3x1 block vector
@@ -32,10 +31,6 @@ type v4x1; y::Matrix; w::Matrix; v::Matrix; s::Matrix; end
 +(a::v4x1, b::v4x1) = v4x1(a.y + b.y, a.w + b.w, a.v + b.v, a.s + b.s)
 -(a::v4x1, b::v4x1) = v4x1(a.y - b.y, a.w - b.w, a.v - b.v, a.s - b.s)
 Base.norm(a::v4x1)  = norm(a.y) + normsafe(a.w) + normsafe(a.v) + normsafe(a.s) 
-Base.println(z::v4x1)  = println("y: ", z.y',
-                         "\ng: ", z.w,
-                         "\nv: ", z.v',
-                         "\ns: ", z.s');
 
 function axpy4!(α::Number, x::v4x1, y::v4x1)
     axpy!(α, x.y, y.y); axpy!(α, x.w, y.w)
@@ -131,7 +126,7 @@ end
 # Example:  block_ranges([1,1,3]) = [1:1,2:2,3:5]
 cum_range(x) = [i:(j-1) for (i,j) in
         zip(cumsum([1;x])[1:end-1], cumsum([1;x])[2:end])]
-QF(z::Vector)                    = 2*z[1]*z[1] - dot(z,z) # xᵀJx
+QF(r) = 2*r[1]*r[1] - dot(r,r)
 Q(x::VectorTypes,y::VectorTypes) = 2*x[1]*y[1] - dot(x,y) # xᵀJy
 fts(x₁, α₁, y₁, x₂, α₂, y₂)      = (x₁'*x₂) - α₂*(x₁'*y₂) -
           α₁*(y₁'*x₂) + α₁*α₂*(y₁'*y₂) # (x₁ - α₁*y₁)'(x₂ - α₂y₂)
@@ -141,8 +136,6 @@ function nestod_soc(z,s)
   # Nesterov-Todd Scaling Matrix for the second order cone
   # Matrix which satisfies the properties
   # W*z = inv(W)*s
-
-  QF = r -> 2*r[1]*r[1] - dot(r,r)
 
   n = size(z,1)
 
@@ -543,18 +536,6 @@ function conicIP(
     end
 
     return min_α;
-
-  end
-
-  function is_feas(x)
-
-    # Check if x is feasible
-
-    for (btype, I, i) = block_data
-      xI = view(x,I); yI = view(y,I);
-      if btype == "R"; assert(x[I] > 0);                    end
-      if btype == "Q"; assert(norm(x[I][2:end]) - x[I][1]); end
-    end
 
   end
 

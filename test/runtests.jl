@@ -74,6 +74,24 @@ facts("ConicIP module") do
 
   end
 
+
+  context("Misc Tests") do
+
+    A = rand(3,3)
+    Z = ConicIP.VecCongurance(A)
+
+    @fact Z*ones(6,1) --> roughly(full(Z)*ones(6,1))
+    @fact Z'*ones(6,1) --> roughly(full(Z)'*ones(6,1))
+    @fact inv(Z)*ones(6,1) --> roughly(full(Z)\ones(6,1))
+    @fact size(Z,1) --> 6
+    @fact sparse(Z) --> full(Z)
+
+    # Test conic steplength - if steplength is infinity
+    X = -eye(3); D = eye(3)
+    @fact ConicIP.maxstep_sdc(ConicIP.vecm(X), ConicIP.vecm(D)) --> Inf
+
+  end
+
   context("Box Constrained QP, H = I") do
 
     srand(0)
@@ -247,6 +265,35 @@ facts("ConicIP module") do
                :Iter => 11)
 
       @fact compare(sol, s) --> true
+
+    end
+
+
+    context("Abandoned") do
+
+      srand(0)
+
+      n = 10;
+      H = eye(n)
+      c = (1:n)''
+
+      A = speye(n)
+      b = zeros(n,1);
+      k = size(A,1)
+
+      G = ones(1,n)
+      d = ones(1,1)
+
+      sol = conicIP(H,H*c,
+                    A,b,[("R",n)],
+                    G,d,
+                    kktsolver = kktsolver,                              
+                    optTol = optTol/100,
+                    maxIters = 2);
+
+      ystar = sol.y
+
+      @fact sol.status --> :Abandoned
 
     end
 
