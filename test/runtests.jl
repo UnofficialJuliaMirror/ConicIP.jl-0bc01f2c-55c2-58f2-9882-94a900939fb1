@@ -61,13 +61,15 @@ facts("ConicIP module") do
 
     @fact A*eye(9) --> roughly(full(A))
     @fact A*ones(9) --> roughly(full(A)*ones(9))
-    
+
     Ad = deepcopy(A)
     Ad[1] = zeros(4,4)
 
     @fact A[1] --> not(exactly(zeros(4,4)))
+    @fact A*ones(9) --> roughly(full(A)*ones(9))
 
     @fact full(Diagonal(ones(9)) + A) --> roughly(full(Diagonal(ones(9))) + full(A))
+
   end
 
   context("Box Constrained QP, H = I") do
@@ -364,12 +366,14 @@ facts("ConicIP module") do
       ystar1 = preprocess_conicIP(H,H*c,
                        A,b,[("R",n)],
                        G,d,
-                       kktsolver = kktsolver,              
+                       kktsolver = kktsolver,
+                       verbose = true,              
                        optTol = optTol/100).y;
 
       ystar2 = preprocess_conicIP(H,H*c,
                        [A; G; -G],[b; d; -d],[("R",(n + 4*6))],
                        G,d,
+                       verbose = true,
                        optTol = optTol/100).y;
 
       @fact norm(ystar1 - ystar2) --> less_than(tol)

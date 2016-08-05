@@ -7,22 +7,15 @@ using Compat:view
 # ****************************************************************
 
 export Block, size, block_idx, broadcastf, full,
-    copy, getindex, setindex!, +, -, *, \, inv, square, cache;
+    copy, getindex, setindex!, +, -, *, \, inv, square;
 
 type Block <: AbstractMatrix{Real}
 
   Blocks::Array{Any}
-  
-  # This class is inefficient with too many blocks. If your block 
-  # diagonal matrix has many small blocks, it may be wise to 
-  # cache the blocks as a sparse matrix. this makes multiplication
-  # an order of magnitude faster. 
-  mcache::SparseMatrixCSC
 
   Block(size::Int) = new(Array(Any,size), spzeros(0,0))
   Block(Blk::Array{Any}) = new(Blk, spzeros(0,0))
   Block(Blk::Array) = new(convert(Array{Any}, Blk), spzeros(0,0))
-  Block(Blk::Array{Any}, mcache::SparseMatrixCSC) = new(Blk, mcache)
 
 end
 
@@ -34,7 +27,7 @@ end
 
 Base.size(A::Block, i::Integer)    = (i == 1 || i == 2) ? size(A)[1] : 1
 getindex(A::Block, i::Integer)     = A.Blocks[i]
-setindex!(A::Block, B, i::Integer) = begin; A.Blocks[i] = B; mcache = spzeros(0,0); end
+setindex!(A::Block, B, i::Integer) = begin; A.Blocks[i] = B; end
 
 function block_idx(A::Block)
 
@@ -133,11 +126,6 @@ function Base.sparse(A::Block)
 
 end
 
-function cache(A::Block)
-  A.mcache = sparse(A)
-end
-
-
 function Base.full(A::Block)
 
   O = zeros(size(A))
@@ -155,8 +143,8 @@ Base.Ac_mul_B(A::Block, X::Array{Float64,2}) = broadcastf(Ac_mul_B, A, X)
 *(A::Block, X::Vector) = broadcastf(*,A,X)
 Base.Ac_mul_B(A::Block, X::Vector) = broadcastf(Ac_mul_B, A, X)
 
-Base.copy(A::Block)        = Block(copy(A.Blocks), copy(A.mcache))
-Base.deepcopy(A::Block)    = Block(deepcopy(A.Blocks), copy(A.mcache))
+Base.copy(A::Block)        = Block(copy(A.Blocks))
+Base.deepcopy(A::Block)    = Block(deepcopy(A.Blocks))
 +(A::Block, B::Block)      = Block(A.Blocks + B.Blocks)
 -(A::Block, B::Block)      = A + (-B)
 Base.inv(A::Block)         = broadcastf(inv, A)
@@ -181,21 +169,4 @@ function +(A::Diagonal, B::Block)
   return B0
 end
 
-function mult!(A::Diagonal, x::VectorTypes, s::VectorTypes)
-  for i = 1:length(x)
-    s[i] = x[i]*A.diag[i];
-  end
-end
-
-function mult!(A::UniformScaling, x::VectorTypes, s::VectorTypes)
-  for i = 1:length(x)
-    s[i] = x[i]*A.λ;
-  end
-end
-
 ^(A::Block,n::Integer) = broadcastf(x -> ^(x,n), A);
-
-function show(io::IO, M::Block)
-    print(io, "BLock")
-end
-
