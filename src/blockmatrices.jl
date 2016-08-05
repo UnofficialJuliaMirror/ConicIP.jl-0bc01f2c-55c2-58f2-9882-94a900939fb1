@@ -13,9 +13,9 @@ type Block <: AbstractMatrix{Real}
 
   Blocks::Array{Any}
 
-  Block(size::Int) = new(Array(Any,size), spzeros(0,0))
-  Block(Blk::Array{Any}) = new(Blk, spzeros(0,0))
-  Block(Blk::Array) = new(convert(Array{Any}, Blk), spzeros(0,0))
+  Block(size::Int) = new(Array(Any,size))
+  Block(Blk::Array{Any}) = new(Blk)
+  Block(Blk::Array) = new(convert(Array{Any}, Blk))
 
 end
 
