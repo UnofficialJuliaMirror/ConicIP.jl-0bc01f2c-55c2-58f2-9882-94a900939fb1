@@ -62,6 +62,8 @@ facts("ConicIP module") do
     @fact A*eye(9) --> roughly(full(A))
     @fact A*ones(9) --> roughly(full(A)*ones(9))
 
+    @fact A'*ones(9) --> roughly(full(A)'*ones(9))
+
     Ad = deepcopy(A)
     Ad[1] = zeros(4,4)
 
@@ -346,7 +348,7 @@ facts("ConicIP module") do
     end
 
 
-    context("Preprocessor Test - Add redundant constraints") do
+    context("Preprocessor Test - Bad Primal Constraints") do
       
       srand(0)
 
@@ -377,6 +379,29 @@ facts("ConicIP module") do
                        optTol = optTol/100).y;
 
       @fact norm(ystar1 - ystar2) --> less_than(tol)
+
+    end    
+
+
+    context("Preprocessor Test - Bad Dual Constraints") do
+      
+      srand(0)
+
+      n = 10;
+      Q = zeros(2*n,2*n);
+      c = -ones(2*n,1)
+
+      A = speye(n)
+      A = [A A]
+      d = zeros(n,1);
+
+      sol = preprocess_conicIP(Q,c,
+                       A,d,[("R",n)],
+                       kktsolver = kktsolver,
+                       verbose = true,              
+                       optTol = optTol/100);
+
+      @fact norm(sol.y) --> less_than(tol)
 
     end    
 
@@ -533,24 +558,32 @@ facts("ConicIP module") do
     
     srand(0)
 
-    m = MathProgBase.ConicModel(ConicIPSolver(verbose = true, 
-      optTol = 1e-6))
-    MathProgBase.loadproblem!(m,
-    [ 1.0,  1.0,  1.0,  1.0],
-    [ 1.0   0.0   0.0   0.0;
-      0.0   1.0   0.0   0.0;
-      0.0   0.0   1.0   0.0],
-    [1.0, 0.0, 0.0],
-    [(:SOC,1:3)],
-    [(:NonNeg,1:4)])
-    MathProgBase.optimize!(m)
-    MathProgBase.status(m)
-    show(m)
+    for to_preprocess = [true, false]
+      m = MathProgBase.ConicModel(ConicIPSolver(verbose = true, 
+                                                optTol = 1e-6,
+                                                preprocess = to_preprocess))
+      MathProgBase.loadproblem!(m,
+      [ 1.0,  1.0,  1.0,  1.0],
+      [ 1.0   0.0   0.0   0.0;
+        0.0   1.0   0.0   0.0;
+        0.0   0.0   1.0   0.0],
+      [1.0, 0.0, 0.0],
+      [(:SOC,1:3)],
+      [(:NonNeg,1:4)])
+      MathProgBase.optimize!(m)
+      MathProgBase.status(m)
+      show(m)
 
-    @fact ConicIP.numvar(m) --> 4
-    @fact ConicIP.numconstr(m) --> 7
+      @fact ConicIP.numvar(m) --> 4
+      @fact ConicIP.numconstr(m) --> 7
 
-    @fact norm(m.primal_sol) --> less_than(tol)
+      @fact norm(m.primal_sol) --> less_than(tol)
+
+      @fact ConicIP.supportedcones(ConicIPSolver()) --> [:Free, :Zero, :NonNeg, :NonPos, :SOC, :SDP]
+
+      ConicIP.LinearQuadraticModel(ConicIPSolver())
+    end
+
   end
 
 end
