@@ -81,7 +81,7 @@ facts("ConicIP module") do
     Z = ConicIP.VecCongurance(A)
 
     @fact Z*ones(6,1) --> roughly(full(Z)*ones(6,1))
-    @fact Z'*Z --> roughly(full(Z)'*full(Z))
+    @fact full(Z'*Z) --> roughly(full(Z)'*full(Z))
     @fact inv(Z)*ones(6,1) --> roughly(full(Z)\ones(6,1))
     @fact size(Z,1) --> 6
     @fact sparse(Z) --> full(Z)
