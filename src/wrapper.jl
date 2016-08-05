@@ -124,8 +124,8 @@ LinearQuadraticModel(s::ConicIPSolver)  = ConicToLPQPBridge(ConicModel(s))
 status(m::ConicIPModel)                = m.solve_stat
 getobjval(m::ConicIPModel)             = m.obj_val
 getsolution(m::ConicIPModel)           = copy(m.primal_sol)
-numvar(m::ConicIPModel)                = m.input_numvar
-numconstr(m::ConicIPModel)             = m.input_numconstr
+numvar(m::ConicIPModel)                = length(m.c)
+numconstr(m::ConicIPModel)             = m.n_constr + m.n_varconstr
 supportedcones(s::ConicIPSolver)        = [:Free, 
                                            :Zero, 
                                            :NonNeg, 

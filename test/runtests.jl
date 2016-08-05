@@ -59,6 +59,9 @@ facts("ConicIP module") do
 
     @fact full(A-B) --> roughly(full(A)-full(B));
 
+    @fact A*eye(9) --> roughly(full(A))
+    @fact A*ones(9) --> roughly(full(A)*ones(9))
+    
     Ad = deepcopy(A)
     Ad[1] = zeros(4,4)
 
@@ -534,11 +537,14 @@ facts("ConicIP module") do
       0.0   1.0   0.0   0.0;
       0.0   0.0   1.0   0.0],
     [1.0, 0.0, 0.0],
-    [(:Soc,1:3)],
+    [(:SOC,1:3)],
     [(:NonNeg,1:4)])
     MathProgBase.optimize!(m)
     MathProgBase.status(m)
     show(m)
+
+    @fact ConicIP.numvar(m) --> 4
+    @fact ConicIP.numconstr(m) --> 7
 
     @fact norm(m.primal_sol) --> less_than(tol)
   end

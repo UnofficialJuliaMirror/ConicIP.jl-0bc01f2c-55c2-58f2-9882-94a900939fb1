@@ -94,7 +94,7 @@ function broadcastf(op::Function, A::Block, x::Vector)
   i = 1
   for I = Task( () -> blockIter(A) )
     xI = view(x,I);
-    y[I] = op(A.Blocks[i])
+    y[I] = op(A.Blocks[i], xI)
     i += 1;
   end
   return y;
@@ -149,34 +149,11 @@ function Base.full(A::Block)
 end
 
 
-function *(A::Block, X::Array{Float64,2})
+*(A::Block, X::Array{Float64,2}) = broadcastf(*,A,X)
+Base.Ac_mul_B(A::Block, X::Array{Float64,2}) = broadcastf(Ac_mul_B, A, X)
 
-  if length(A.mcache) != 0; return A.mcache*X; end
-  Y = similar(X)
-  i = 1
-  for I = Task( () -> blockIter(A) )
-    XI = view(X,I,:)
-    #mult!(A.Blocks[i],XI,view(Y,I,:))
-    Y[I,:] = *(A.Blocks[i],XI)
-    i += 1;
-  end
-  return Y
-
-end
-
-function Base.Ac_mul_B(A::Block, X::Array{Float64,2})
-
-  if length(A.mcache) != 0; return A.mcache*X; end
-  Y = similar(X)
-  i = 1
-  for I = Task( () -> blockIter(A) )
-    XI = view(X,I,:)
-    Y[I,:] = Ac_mul_B(A.Blocks[i],XI)
-    i += 1;
-  end
-  return Y
-
-end
+*(A::Block, X::Vector) = broadcastf(*,A,X)
+Base.Ac_mul_B(A::Block, X::Vector) = broadcastf(Ac_mul_B, A, X)
 
 Base.copy(A::Block)        = Block(copy(A.Blocks), copy(A.mcache))
 Base.deepcopy(A::Block)    = Block(deepcopy(A.Blocks), copy(A.mcache))
