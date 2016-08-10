@@ -640,7 +640,7 @@ using MathProgBase
 # Run MathProgBase Tests
 include(Pkg.dir("MathProgBase")"/test/conicinterface.jl"); 
 coniclineartest(ConicIPSolver(verbose = true), duals=true)
-conicSOCtest(ConicIPSolver(verbose = true), duals=true)
+#conicSOCtest(ConicIPSolver(verbose = true), duals=true)
 conicSDPtest(ConicIPSolver(verbose = true, optTol = 1e-6))
 
 end # module
