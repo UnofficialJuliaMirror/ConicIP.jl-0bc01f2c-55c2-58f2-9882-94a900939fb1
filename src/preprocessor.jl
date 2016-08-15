@@ -8,31 +8,37 @@ Ax = b
 and checks if the equations are consistent.
 """
 function imcols(A, b; ϵ = 1e-10)
-
   # LU Factorization where L has unit diagonals
   if isempty(A)
     return ([], true)
   end
 
-  # presolve - check for consistency
-  if norm(A*(A\b) - b, Inf) .> ϵ
-    return([], false)
-  end
-
-  LUp = lufact(A*A') 
-  L = LUp[:L]; U = LUp[:U]; p = LUp[:p]
+  # REPLACE THIS WITH SPQR ONCE THE FACTORS ARE EXTRACTABLE
+  (Q,R) = qr(full(A*A'))
 
   # Identify rows in U which are equal to 0, i.e. are linear
   # combinations of the previous rows
   # z = sum(abs(U),2)[:] .< ϵ
-  z = abs(diag(U)) .< ϵ
+  z = abs(diag(R)) .< ϵ
 
-  return (sort(p[!z]), true)
+  # check for consistency in redundant constraints
+  # Method
+  #  - Solve reduced, full rank system
+  #  - Check if the answer consistent
+  if !isempty(z)
+    A₀ = A[!z,:]; b₀ = b[!z]
+    x = A₀\b₀ # Solve full rank system
+    if norm(A*x - b, Inf) > ϵ
+      return([], false)
+    end
+  end
 
+  return (sort(find(!z)), true)
 end
 
+
 """
-ConicIP with preprocessing to ensure the following 
+ConicIP with preprocessing to ensure the following
 rank constraints
 
 Primal equailty constraints : Gx = d
@@ -41,9 +47,9 @@ Rank condition              : rank(G) = size(G,1)
 Dual equality constraints   : [ Q A' G'] = c
 Rank condition              : rank([Q A' G']) = size(Q,1)
 """
-function preprocess_conicIP(Q, c::Matrix, 
-  A, b::Matrix, cone_dims, 
-  G = spzeros(0,length(c)), d = zeros(0,1); 
+function preprocess_conicIP(Q, c::Matrix,
+  A, b::Matrix, cone_dims,
+  G = spzeros(0,length(c)), d = zeros(0,1);
   verbose = false,
   options...)
 
@@ -61,7 +67,7 @@ function preprocess_conicIP(Q, c::Matrix,
   (ID, dconsistent) = imcols([Q A' G[IP,:]'], c)
 
   if !(pconsistent && dconsistent)
-    return ConicIP.Solution(zeros(n,1)/0, zeros(p,1)/0,zeros(m,1)/0, 
+    return ConicIP.Solution(zeros(n,1)/0, zeros(p,1)/0,zeros(m,1)/0,
       :Infeasible, 0, NaN, NaN, NaN, NaN)
   end
 
@@ -69,10 +75,10 @@ function preprocess_conicIP(Q, c::Matrix,
     println("   - Removing $(p - length(IP)) redundant primal constraints ");
   end
 
-  if (verbose == true) && (length(ID) != n) 
-    println("   - Augmenting $(n - length(ID) ) dual constraints"); 
+  if (verbose == true) && (length(ID) != n)
+    println("   - Augmenting $(n - length(ID) ) dual constraints");
   end
-  
+
   if (verbose == true) &&  (length(ID) == n) && (length(IP) == p)
     println("   - No changes made")
   end
@@ -81,11 +87,11 @@ function preprocess_conicIP(Q, c::Matrix,
 
        # Augmented constraints
        #             |
-  sol = conicIP(Q + Z, c, A, b, cone_dims, G[IP,:], d[IP,: ]; 
+  sol = conicIP(Q + Z, c, A, b, cone_dims, G[IP,:], d[IP,: ];
     verbose = verbose,         #                   |
-    options...)                # Removed redundant linear constraints 
+    options...)                # Removed redundant linear constraints
                                # TODO : (use view?)
-                               
+
 
   # Argument the dual variables with 0's corresponding to the redundant
   # constraints
