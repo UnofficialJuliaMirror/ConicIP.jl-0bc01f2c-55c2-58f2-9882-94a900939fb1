@@ -486,7 +486,8 @@ function conicIP(
                      [i for i in 1:length(block_types)])
 
   # This variable is invariant to scalings in the objective value
-  pnorm = max(1,sum(Q*ones(n,1))[1], norm(c))
+  traceQ = sum(Float64[Q[i,i] for i = 1:n])
+  pnorm  = max(1,traceQ, norm(c))
 
   # Sanity Checks
   ◂ = nothing
@@ -517,7 +518,7 @@ function conicIP(
     m_i = length(I)
     if btype == "R"; e[I] = ones(m_i,1);             end
     if btype == "Q"; e[I] = [1; zeros(m_i-1,1)];     end
-    if btype == "S"; e[I] = vecm(eye(ord(I)));        end
+    if btype == "S"; e[I] = vecm(eye(ord(I)));       end
   end
 
   # ──────────────────────────────────────────────────────────────
