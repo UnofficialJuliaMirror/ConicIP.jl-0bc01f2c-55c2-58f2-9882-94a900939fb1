@@ -472,7 +472,7 @@ function conicIP(
   refinementThreshold = optTol/1e7 # Accuracy of refinement steps
 
   )
-   
+  
   # Precomputed transposition matrices
   Aᵀ = A'; Gᵀ = G'
 
@@ -484,6 +484,9 @@ function conicIP(
   block_sizes  = [i[2] for i in cone_dims]
   block_data   = zip(block_types, cum_range(block_sizes),
                      [i for i in 1:length(block_types)])
+
+  # This variable is invariant to scalings in the objective value
+  pnorm = max(1,sum(Q*ones(n,1))[1], norm(c))
 
   # Sanity Checks
   ◂ = nothing
@@ -762,41 +765,51 @@ function conicIP(
     # ────────────────────────────────────────────────────────────
     # If iterates blow up, diagonose divergence
     # ────────────────────────────────────────────────────────────
-    if max(μ[1], rDu, rPr, rCp) > 1/optTol || !all(isfinite([μ[1], rDu, rPr, rCp]))
 
-        # Primal Infeasible
-        r_infeas = norm(Gᵀ*z.w + Aᵀ*z.v)[1]/(b'*z.v + d'*z.w)[1]
+    if max(μ[1]/pnorm, rDu, rPr, rCp) > 1/optTol || !all(isfinite([μ[1], rDu, rPr, rCp]))
+      
+      pobj = 0.5*vecdot(z.y, Q*z.y) - vecdot(c, z.y)
+      dobj = pobj + vecdot(z.w, r0.w) + vecdot(z.v, r0.v) - vecdot(z.v, z.s)
 
-        if r_infeas/(1+norm(c)) < optTol
+      # Certificate of Primal Infeasibility
+      # G'w + A'v = 0, b'v + d'w < 0, w ≧ 0 
+      αp = -vecdot(b,z.v) + vecdot(d,z.w)
+      r_infeas = norm(Gᵀ*z.w - Aᵀ*z.v)/(max(1,norm(c))*abs(αp))
+      
+      if r_infeas < optTol && αp < 0
 
-          if verbose
-            print("\n > EXIT -- Infeasible!\n\n")
-          end
-          sol.status = :Infeasible
-          return sol
-
-        end 
-
-        # Dual Infeasible
-        r_dual_infeas1 = isempty(A) ? -Inf : (A*z.y - z.s)[1]/vecdot(c,z.y)
-        r_dual_infeas2 = isempty(G) ? -Inf : norm(G*z.y - d)
-
-        if max(r_dual_infeas1, r_dual_infeas2) < optTol
-
-          if verbose
-            print("\n > EXIT -- Dual Infeasible!\n\n")
-          end
-          sol.status = :DualInfeasible
-          return sol
-
-        end
-
-        # Cause of Divergence Unknown
         if verbose
-            print("\n > EXIT -- Error!\n\n")
+          print("\n > EXIT -- Infeasible!\n\n")
         end
-        sol.status = :Error
+        sol.status = :Infeasible
         return sol
+
+      end 
+
+      # Certificate of Dual Infeasiblity
+      # A*y - s = 0, G*y = 0, Q*y = 0, c'y > 0, s ≧ 0
+      αd = vecdot(c,z.y)
+      r_dual_infeas1 = isempty(A) ? -Inf : norm(A*z.y - z.s)/max(1,norm(b))
+      r_dual_infeas2 = isempty(G) ? -Inf : norm(G*z.y)/max(1,norm(d))
+      r_dual_infeas3 = norm(Q*z.y)/max(1,norm(c))
+      d_infeas = max(r_dual_infeas1, r_dual_infeas2, r_dual_infeas3)/abs(αd)
+
+      if d_infeas < optTol && αd > 0
+
+        if verbose
+          print("\n > EXIT -- Dual Infeasible!\n\n")
+        end
+        sol.status = :DualInfeasible
+        return sol
+
+      end
+
+      # Cause of Divergence Unknown
+      if verbose
+          print("\n > EXIT -- Error!\n\n")
+      end
+      sol.status = :Error
+      return sol
 
     end
 
