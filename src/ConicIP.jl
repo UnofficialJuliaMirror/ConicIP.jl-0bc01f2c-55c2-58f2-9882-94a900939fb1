@@ -463,7 +463,7 @@ function conicIP(
   # └                ┘ └   ┘   └   ┘
   kktsolver = kktsolver_qr,
 
-  optTol = 1e-5,           # Optimal Tolerance
+  optTol = 1e-6,           # Optimal Tolerance
   DTB = 0.01,              # Distance to Boundary
   verbose = true,          # Verbose Output
   maxRefinementSteps = 3,  # Maximum number of IR Steps
@@ -485,9 +485,7 @@ function conicIP(
   block_data   = zip(block_types, cum_range(block_sizes),
                      [i for i in 1:length(block_types)])
 
-  # This variable is invariant to scalings in the objective value
-  traceQ = sum(Float64[Q[i,i] for i = 1:n])
-  pnorm  = max(1,traceQ, norm(c))
+  normc  = norm(c)
 
   # Sanity Checks
   ◂ = nothing
@@ -649,6 +647,7 @@ function conicIP(
 
   sol     = Solution(z.y, z.w, z.v, :Error, 0, 0, Inf, Inf, Inf)
   optBest = Inf
+  rStep   = 0
   
   for Iter = 1:maxIters
 
@@ -656,13 +655,8 @@ function conicIP(
     F⁻ᵀ  = inv(F)'
     λ    = F*z.v;                 # This is also F⁻ᵀ*z.s.
 
-    # The cache is an optimization for the case where there are 
-    # many tiny blocks. Since creating mutiple views is time 
-    # consuming, we store F and F⁻ᵀ as big sparse matrices.
-    if cache_nestodd == true; cache(F); cache(F⁻ᵀ); end
-
     solve = solve4x4gen(λ,F,F⁻ᵀ)   # Caches 4x4 solver
-                                 # (used a few times, at least 2)
+                                   # (used a few times, at least 2)
 
     #         ┌                   ┐ ┌     ┐
     # rleft = │ Q   G'   -A'      │ │ z.y │
@@ -678,6 +672,93 @@ function conicIP(
     # True Residual of nonlinear KKT System
     r0 = v4x1(rleft.y - c, rleft.w - d, rleft.v - b, rleft.s);
 
+    # Gap
+    μbar = z.v'z.s
+    μ    = μbar/conedim
+
+    # ────────────────────────────────────────────────────────────
+    #  Print iterate status, save best iterate
+    # ────────────────────────────────────────────────────────────
+
+    cᵀy = vecdot(c,z.y)
+    rDu = norm(r0.y)/(1+norm(c))
+    rPr = normsafe(r0.v)/(1+normsafe(b))
+    rCp = normsafe(r0.s)/(1+abs(cᵀy));
+
+    if max(rDu, rPr, rCp) < optBest
+      sol.y[:] = z.y; sol.w[:] = z.w; sol.v[:] = z.v
+      sol.Iter = Iter; sol.Mu = μ[1]; 
+      sol.duFeas = rDu; sol.prFeas = rPr; sol.muFeas = rCp
+      optBest = max(rDu, rPr, rCp)
+    end
+
+    if verbose
+      ξ2()=@printf(" %6i  %-10.4e  %-10.4e  %-10.4e  %-10.4e  %i\n",
+                  Iter, μ[1], rDu, rPr, rCp, rStep);ξ2()
+    end    
+
+    # ────────────────────────────────────────────────────────────
+    # Convergence Checks (on previous iterate)
+    # ────────────────────────────────────────────────────────────
+
+    # Optimality 
+    if max(rDu, rPr, rCp) < optTol
+      if verbose; print("\n > EXIT -- Below Tolerance!\n\n"); end
+      sol.status = :Optimal
+      return sol
+    end
+
+    # Primal Infeasibility
+    # 
+    # Certificate:
+    #   Gᵀw + Aᵀv = 0
+    #   bᵀv + dᵀw < 0
+    #   w ≧ 0 
+    # 
+    # r_infeas is the residual in an infesability certificate, 
+    # where each element of (y,w,v,s) is scaled by bᵀv + dᵀw so
+    # bᵀv + dᵀw = -1
+    # 
+    dᵀy_bᵀv  = vecdot(d,z.w) -vecdot(b,z.v)
+    r_infeas = norm(Gᵀ*z.w - Aᵀ*z.v)/(max(1,normc)*abs(dᵀy_bᵀv))
+    
+    if r_infeas < optTol && dᵀy_bᵀv < 0
+      if verbose; print("\n > EXIT -- Infeasible!\n\n"); end
+      sol.status = :Infeasible
+      return sol
+    end 
+
+    # Dual Infeasiblity
+    #
+    # Certificate:
+    #   Ay - s = 0   (d_infeas1)
+    #   Gy = 0       (d_infeas2)
+    #   Qy = 0       (d_infeas3)
+    #   cᵀy > 0
+    #   s ≧ 0
+    # 
+    # d_infeas is the residual in a dual infeasibility certificate,
+    # where each element of (y,w,v,s) is sclaed by cᵀy such that 
+    # cᵀy = 1
+    #
+    d_infeas1 = isempty(A) ? -Inf : norm(A*z.y - z.s)/max(1,norm(b))
+    d_infeas2 = isempty(G) ? -Inf : norm(G*z.y)/max(1,norm(d))
+    d_infeas3 = norm(Q*z.y)/max(1,normc)
+    d_infeas  = max(d_infeas1, d_infeas2, d_infeas3)/abs(cᵀy)
+
+    if d_infeas < optTol && cᵀy > 0
+      if verbose; print("\n > EXIT -- Dual Infeasible!\n\n"); end
+      sol.status = :DualInfeasible
+      return sol
+    end
+
+    # Cause of Divergence Unknown
+    if max(μ[1], rDu, rPr, rCp) > 1e4/optTol || !all(isfinite([μ[1], rDu, rPr, rCp]))
+      if verbose; print("\n > EXIT -- Error!\n\n"); end
+      sol.status = :Error
+      return sol
+    end
+
     # ────────────────────────────────────────────────────────────
     #  Predictor
     # ────────────────────────────────────────────────────────────
@@ -688,11 +769,9 @@ function conicIP(
     α_aff_s = min( maxstep( z.s, d_aff.s ) , 1 )
     α_aff   = min( α_aff_v , α_aff_s )
 
-    μbar = z.v'z.s
     # >> ρ  = (z.v - α_aff*d_aff.v)'*(z.s - α_aff*d_aff.s)/μbar
     ρ  = fts(z.v, α_aff, d_aff.v, z.s, α_aff,d_aff.s)/μbar
     σ  = max(0,min(1,ρ))^3
-    μ  = μbar/conedim
 
     # ────────────────────────────────────────────────────────────
     #  Corrector
@@ -714,11 +793,11 @@ function conicIP(
     Δz  = solve(r);
     rStep = 1;
     for rStep = 1:maxRefinementSteps
-      r0  = v4x1( Q*Δz.y  + Gᵀ*Δz.w  - Aᵀ*Δz.v ,
-                  G*Δz.y                       ,
-                  A*Δz.y - Δz.s                ,
-                  λ∘(F*Δz.v) + λ∘(F⁻ᵀ*Δz.s) )
-      rIr = r - r0
+      rkkt  = v4x1( Q*Δz.y  + Gᵀ*Δz.w  - Aᵀ*Δz.v , # y
+                    G*Δz.y                       , # w
+                    A*Δz.y - Δz.s                , # v
+                    λ∘(F*Δz.v) + λ∘(F⁻ᵀ*Δz.s) )    # s
+      rIr = r - rkkt
       rnorm = norm(rIr)/(n + 2*m)
       if rnorm > 0.1
         verbose ? warn("4x4 solve failed, residual norm $(rnorm)") : ◂
@@ -728,91 +807,16 @@ function conicIP(
       Δz  = Δz + Δzr
     end
 
+    # ────────────────────────────────────────────────────────────
+    # Make Step
+    # ────────────────────────────────────────────────────────────
+
     α_v = min( maxstep(z.v, Δz.v/(1-DTB)), 1 )
     α_s = min( maxstep(z.s, Δz.s/(1-DTB)), 1 )
     α   = min( α_v, α_s )
 
     # >> z = z - α*Δz;
     axpy4!(-α, Δz, z)
-
-    # ────────────────────────────────────────────────────────────
-    #  Print iterate status
-    # ────────────────────────────────────────────────────────────
-
-    rDu = norm(r0.y)/(1+norm(c))
-    rPr = normsafe(r0.v)/(1 + normsafe(b))
-    rCp = normsafe(r0.s)/(1+abs(c'z.y)[1]); # [1] acts as a cast
-
-    if max(rDu, rPr, rCp) < optBest
-      sol.y[:] = z.y; sol.w[:] = z.w; sol.v[:] = z.v
-      sol.Iter = Iter; sol.Mu = μ[1]; 
-      sol.duFeas = rDu; sol.prFeas = rPr; sol.muFeas = rCp
-      optBest = max(rDu, rPr, rCp)
-    end
-
-    if verbose
-        ξ2()=@printf(" %6i  %-10.4e  %-10.4e  %-10.4e  %-10.4e  %i\n",
-                    Iter, μ[1], rDu, rPr, rCp, rStep);ξ2()
-    end    
-
-    if max(rDu, rPr, rCp) < optTol
-        if verbose
-            print("\n > EXIT -- Below Tolerance!\n\n")
-        end
-        sol.status = :Optimal
-        return sol
-    end
-
-    # ────────────────────────────────────────────────────────────
-    # If iterates blow up, diagonose divergence
-    # ────────────────────────────────────────────────────────────
-
-    if max(μ[1]/pnorm, rDu, rPr, rCp) > 1/optTol || !all(isfinite([μ[1], rDu, rPr, rCp]))
-      
-      pobj = 0.5*vecdot(z.y, Q*z.y) - vecdot(c, z.y)
-      dobj = pobj + vecdot(z.w, r0.w) + vecdot(z.v, r0.v) - vecdot(z.v, z.s)
-
-      # Certificate of Primal Infeasibility
-      # G'w + A'v = 0, b'v + d'w < 0, w ≧ 0 
-      αp = -vecdot(b,z.v) + vecdot(d,z.w)
-      r_infeas = norm(Gᵀ*z.w - Aᵀ*z.v)/(max(1,norm(c))*abs(αp))
-      
-      if r_infeas < optTol && αp < 0
-
-        if verbose
-          print("\n > EXIT -- Infeasible!\n\n")
-        end
-        sol.status = :Infeasible
-        return sol
-
-      end 
-
-      # Certificate of Dual Infeasiblity
-      # A*y - s = 0, G*y = 0, Q*y = 0, c'y > 0, s ≧ 0
-      αd = vecdot(c,z.y)
-      r_dual_infeas1 = isempty(A) ? -Inf : norm(A*z.y - z.s)/max(1,norm(b))
-      r_dual_infeas2 = isempty(G) ? -Inf : norm(G*z.y)/max(1,norm(d))
-      r_dual_infeas3 = norm(Q*z.y)/max(1,norm(c))
-      d_infeas = max(r_dual_infeas1, r_dual_infeas2, r_dual_infeas3)/abs(αd)
-
-      if d_infeas < optTol && αd > 0
-
-        if verbose
-          print("\n > EXIT -- Dual Infeasible!\n\n")
-        end
-        sol.status = :DualInfeasible
-        return sol
-
-      end
-
-      # Cause of Divergence Unknown
-      if verbose
-          print("\n > EXIT -- Error!\n\n")
-      end
-      sol.status = :Error
-      return sol
-
-    end
 
   end
 

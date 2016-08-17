@@ -11,7 +11,7 @@ using MathProgBase
 Pkg.installed("MathProgBase")
 include(Pkg.dir("MathProgBase")"/test/conicinterface.jl"); 
 coniclineartest(ConicIPSolver(verbose = false))
-conicSDPtest(ConicIPSolver(verbose = false, optTol = 1e-6))
+conicSDPtest(ConicIPSolver(verbose = false, optTol = 1e-7))
 
 end
 # Convex.jl Tests
@@ -30,7 +30,7 @@ if installed
 	using ConicIP
 	using Convex; 
 
-	set_default_solver(ConicIPSolver(verbose = false, optTol = 1e-6))
+	set_default_solver(ConicIPSolver(verbose = false, optTol = 1e-7))
 	include(Pkg.dir("Convex")"/test/runtests_single_solver.jl")
 
 end
