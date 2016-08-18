@@ -7,11 +7,13 @@ Ax = b
 
 and checks if the equations are consistent.
 """
-function imcols(A, b; ϵ = 1e-10)
+function imcols(A, b; ϵ = 1e-100)
   # LU Factorization where L has unit diagonals
   if isempty(A)
     return ([], true)
   end
+
+  nA = vecnorm(A); A = A/nA; b = b/nA
 
   # REPLACE THIS WITH SPQR ONCE THE FACTORS ARE EXTRACTABLE
   (Q,R) = qr(full(A*A'))
@@ -28,7 +30,7 @@ function imcols(A, b; ϵ = 1e-10)
   if !isempty(z)
     A₀ = A[!z,:]; b₀ = b[!z]
     x = A₀\b₀ # Solve full rank system
-    if norm(A*x - b, Inf) > ϵ
+    if norm(A*x - b, Inf) > ϵ*100
       return([], false)
     end
   end
@@ -62,6 +64,8 @@ function preprocess_conicIP(Q, c::Matrix,
   n = length(c) # Number of variables
   m = size(A,1) # Number of inequality constraints
   p = size(G,1) # Number of equality constraints
+
+  normd = isempty(d) ? -Inf : norm(d)
 
   (IP, pconsistent) = imcols(G, d)
   (ID, dconsistent) = imcols([Q A' G[IP,:]'], c)

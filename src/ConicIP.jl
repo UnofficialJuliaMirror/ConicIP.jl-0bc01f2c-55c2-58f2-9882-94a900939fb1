@@ -469,8 +469,10 @@ function conicIP(
   maxRefinementSteps = 3,  # Maximum number of IR Steps
   maxIters = 100,          # Maximum number of interior iterations
   cache_nestodd = false,   # Set to true if there are many small blocks
+  infeasTol = optTol,      # Infeasibility threshold (this shouldn't need to be tweaked,
+                           # but set it small if the program returns infeasible/unbounded when 
+                           # you are sure it isn't)
   refinementThreshold = optTol/1e7 # Accuracy of refinement steps
-
   )
   
   # Precomputed transposition matrices
@@ -485,7 +487,9 @@ function conicIP(
   block_data   = zip(block_types, cum_range(block_sizes),
                      [i for i in 1:length(block_types)])
 
-  normc  = norm(c)
+  normc = norm(c)
+  normd = isempty(d) ? -Inf: norm(d)
+  normb = isempty(b) ? -Inf: norm(b)
 
   # Sanity Checks
   ◂ = nothing
@@ -637,18 +641,20 @@ function conicIP(
   z.s = z.s - α_s*e
 
   if verbose
-      ξ1()=@printf(" %-6s  %-10s  %-10s  %-10s  %-10s  %-10s\n",
-                  "  Iter","Mu","prFeas","duFeas","muFeas","refine");ξ1()
+      println("            Optimality                      Objective              Infeasibility       ")
+      println()
+      ξ1()=@printf("\x1b[1m %-6s  │  %-8s  %-8s  %-8s │  %-8s  %-8s  │  %-8s  %-8s │  %-8s \x1b[0m\n",
+                  "  Iter","prFeas","duFeas","muFeas","pobj","dobj","icertp","icertd","refine");ξ1()
   end
 
   # ────────────────────────────────────────────────────────────
   #  Iterate Loop
   # ────────────────────────────────────────────────────────────
 
-  sol     = Solution(z.y, z.w, z.v, :Error, 0, 0, Inf, Inf, Inf)
+  sol     = Solution(z.y, z.w, z.v, :None, 0, 0, Inf, Inf, Inf)
   optBest = Inf
   rStep   = 0
-  
+  rnorm   = 0
   for Iter = 1:maxIters
 
     F    = nt_scaling(z.v, z.s)   # Nesterov-Todd Scaling Matrix
@@ -692,10 +698,8 @@ function conicIP(
       optBest = max(rDu, rPr, rCp)
     end
 
-    if verbose
-      ξ2()=@printf(" %6i  %-10.4e  %-10.4e  %-10.4e  %-10.4e  %i\n",
-                  Iter, μ[1], rDu, rPr, rCp, rStep);ξ2()
-    end    
+    pobj = 0.5*vecdot(z.y, Q*z.y) - vecdot(c, z.y)
+    dobj = pobj + vecdot(z.w, r0.w) + vecdot(z.v, r0.v) - vecdot(z.v, z.s)  
 
     # ────────────────────────────────────────────────────────────
     # Convergence Checks (on previous iterate)
@@ -703,60 +707,92 @@ function conicIP(
 
     # Optimality 
     if max(rDu, rPr, rCp) < optTol
-      if verbose; print("\n > EXIT -- Below Tolerance!\n\n"); end
       sol.status = :Optimal
-      return sol
     end
 
-    # Primal Infeasibility
-    # 
-    # Certificate:
-    #   Gᵀw + Aᵀv = 0
-    #   bᵀv + dᵀw < 0
-    #   w ≧ 0 
-    # 
-    # r_infeas is the residual in an infesability certificate, 
-    # where each element of (y,w,v,s) is scaled by bᵀv + dᵀw so
-    # bᵀv + dᵀw = -1
-    # 
-    dᵀy_bᵀv  = vecdot(d,z.w) -vecdot(b,z.v)
-    r_infeas = norm(Gᵀ*z.w - Aᵀ*z.v)/(max(1,normc)*abs(dᵀy_bᵀv))
-    
-    if r_infeas < optTol && dᵀy_bᵀv < 0
-      if verbose; print("\n > EXIT -- Infeasible!\n\n"); end
-      sol.status = :Infeasible
-      return sol
-    end 
+    if !(p == 0 && m == 0)
 
-    # Dual Infeasiblity
-    #
-    # Certificate:
-    #   Ay - s = 0   (d_infeas1)
-    #   Gy = 0       (d_infeas2)
-    #   Qy = 0       (d_infeas3)
-    #   cᵀy > 0
-    #   s ≧ 0
-    # 
-    # d_infeas is the residual in a dual infeasibility certificate,
-    # where each element of (y,w,v,s) is sclaed by cᵀy such that 
-    # cᵀy = 1
-    #
-    d_infeas1 = isempty(A) ? -Inf : norm(A*z.y - z.s)/max(1,norm(b))
-    d_infeas2 = isempty(G) ? -Inf : norm(G*z.y)/max(1,norm(d))
-    d_infeas3 = norm(Q*z.y)/max(1,normc)
-    d_infeas  = max(d_infeas1, d_infeas2, d_infeas3)/abs(cᵀy)
+      # Primal Infeasibility
+      # 
+      # Certificate: ∃w,v such that
+      #   Gᵀw + Aᵀv = 0
+      #   bᵀv + dᵀw < 0
+      #   w ≧ 0 
+      #
+      # The program returns a certificate w,v that satisfies 
+      # 
+      #  CVXOPT style         ECOS Style
+      #  -------------------------------------------   
+      #   Gᵀw + Aᵀv = 0        Gᵀw + Aᵀv = 0  
+      #   bᵀv + dᵀw = -1       bᵀv + dᵀw < 0
+      #   w ≧ 0                w ≧ 0        
+      #                        norm(v) + norm(w) = 1
+      #                       
+      dᵀy_bᵀv  = vecdot(d,z.w) - vecdot(b,z.v)
 
-    if d_infeas < optTol && cᵀy > 0
-      if verbose; print("\n > EXIT -- Dual Infeasible!\n\n"); end
-      sol.status = :DualInfeasible
-      return sol
+      p_infeas_unscaled = norm(Gᵀ*z.w - Aᵀ*z.v)
+      p_infeas_cvx = dᵀy_bᵀv < 0 ? p_infeas_unscaled/(normsafe(z.y) + normsafe(z.v)) : NaN
+      p_infeas_ecos = dᵀy_bᵀv < 0 ? p_infeas_unscaled/(max(1,normc)*abs(dᵀy_bᵀv)) : NaN
+      p_infeas = max(p_infeas_cvx, p_infeas_ecos)
+
+      if p_infeas < infeasTol
+        sol.y[:] = 0*sol.y[:]/0; sol.w[:] = z.w/-dᵀy_bᵀv; sol.v[:] = z.v/-dᵀy_bᵀv;
+        sol.status = :Infeasible
+      end 
+
+      # Dual Infeasiblity
+      #
+      # Certificate: ∃y,s such that
+      #   Ay - s = 0   (d_infeas1)
+      #   Gy = 0       (d_infeas2)
+      #   Qy = 0       (d_infeas3)
+      #   cᵀy > 0
+      #   s ≧ 0
+      # 
+      # The program returns a certificate y that satisfies 
+      #
+      #  CVXOPT style    ECOS style 
+      #  ------------------------------
+      #   Ay ≧ 0          Ay ≧ 0
+      #   Gy = 0          Gy = 0
+      #   Qy = 0          Qy = 0
+      #   cᵀy = 1         cᵀy > 0
+      #                   norm(y) = 1
+      #
+      d_infeas1 = isempty(A) ? -Inf : norm(A*z.y - z.s)
+      d_infeas2 = isempty(G) ? -Inf : norm(G*z.y)
+      d_infeas3 = all(isfinite(z.y)) ? norm(Q*z.y) : NaN
+
+      d_infeas_cvx = cᵀy > 0 ? max(d_infeas1/max(1,normb), d_infeas2/max(1,normd), d_infeas3/max(1,normc))/abs(cᵀy) : NaN        
+      d_infeas_ecos = cᵀy > 0 ? max(d_infeas1, d_infeas2, d_infeas3)/norm(z.y) : NaN
+      d_infeas = abs(max(d_infeas_cvx, d_infeas_ecos))
+
+      if d_infeas < infeasTol
+        sol.y[:] = z.y/abs(cᵀy); sol.v[:] = 0*sol.v[:]/0; sol.w[:] = 0*sol.w[:]/0
+        sol.status = :Unbounded
+      end
+
     end
+
+    if verbose
+      if rnorm > 0.001; print("\x1b[1m\x1b[31m"); end
+      ξ2()=@printf(" %6i  │  %-8.1e  %-8.1e  %-8.1e │  % -8.1e  % -8.1e  │  %-8.1e  %-8.1e │  %i\n",
+                  Iter, rDu, rPr, rCp, pobj, dobj, p_infeas, d_infeas, rStep);ξ2()
+      if rnorm > 0.001; print("\x1b[0m"); end
+    end  
+
+    if verbose
+      if sol.status == :Infeasible; print("\n > EXIT -- Certificate of Infeasiblity Found!\n\n"); end
+      if sol.status == :Unbounded;  print("\n > EXIT -- Certificate of Dual Infeasibility Found!\n\n"); end
+      if sol.status == :Optimal;    print("\n > EXIT -- Below Tolerance!\n\n"); end        
+    end
+
+    if sol.status != :None; return sol; end
 
     # Cause of Divergence Unknown
-    if max(μ[1], rDu, rPr, rCp) > 1e4/optTol || !all(isfinite([μ[1], rDu, rPr, rCp]))
+    if !all(isfinite([μ[1], rDu, rPr, rCp]))
       if verbose; print("\n > EXIT -- Error!\n\n"); end
-      sol.status = :Error
-      return sol
+      sol.status = :Error; return sol
     end
 
     # ────────────────────────────────────────────────────────────
@@ -799,9 +835,9 @@ function conicIP(
                     λ∘(F*Δz.v) + λ∘(F⁻ᵀ*Δz.s) )    # s
       rIr = r - rkkt
       rnorm = norm(rIr)/(n + 2*m)
-      if rnorm > 0.1
-        verbose ? warn("4x4 solve failed, residual norm $(rnorm)") : ◂
-      end
+      # if rnorm > 0.1
+      #   verbose ? warn("4x4 solve failed, residual norm $(rnorm)") : ◂
+      # end
       if rnorm < refinementThreshold; break; end
       Δzr = solve(rIr)
       Δz  = Δz + Δzr

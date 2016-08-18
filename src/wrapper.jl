@@ -74,6 +74,8 @@ type ConicIPModel <: AbstractConicModel
     preprocess  ::Bool
     options
 
+    nA          ::Float64
+
 end
 
 """
@@ -118,7 +120,8 @@ ConicModel(s::ConicIPSolver) = ConicIPModel(
   0,
   0,
   s.preprocess,
-  s.options)
+  s.options,
+  NaN)
 
 LinearQuadraticModel(s::ConicIPSolver)  = ConicToLPQPBridge(ConicModel(s))
 status(m::ConicIPModel)                = m.solve_stat
@@ -279,12 +282,14 @@ function loadproblem!(m::ConicIPModel, c,
     end
 
   end
+  
+  nA = vecnorm(A_)
 
   Λ = sign([I_A;I_vA])
-  A = Λ.*[A_[abs(I_A),:]; I[abs(I_vA),:]]
+  A = Λ.*[A_[abs(I_A),:]; nA*I[abs(I_vA),:]]
 
   Λ = sign([I_G;I_vG])
-  G = Λ.*[A_[abs(I_G),:]; I[abs(I_vG),:]]
+  G = Λ.*[A_[abs(I_G),:]; nA*I[abs(I_vG),:]]
 
   m.Q           = spzeros(n,n)
   m.c           = -c''
@@ -303,6 +308,7 @@ function loadproblem!(m::ConicIPModel, c,
   m.I_vGl       = I_vGl
   m.n_constr    = n_constr
   m.n_varconstr = n_varconstr
+  m.nA          = nA
 
 end
 
@@ -324,8 +330,8 @@ function optimize!(m::ConicIPModel)
   signed_assign!(m.dual_sol, m.sol.w, m.I_G, m.I_Gl)
 
   m.vardual_sol = zeros(m.n_varconstr)
-  signed_assign!(m.vardual_sol, m.sol.v, m.I_vA, m.I_vAl)
-  signed_assign!(m.vardual_sol, m.sol.w, m.I_vG, m.I_vGl)
+  signed_assign!(m.vardual_sol, m.sol.v*m.nA, m.I_vA, m.I_vAl)
+  signed_assign!(m.vardual_sol, m.sol.w*m.nA, m.I_vG, m.I_vGl)
 
 end
 
