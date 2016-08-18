@@ -7,7 +7,7 @@ Ax = b
 
 and checks if the equations are consistent.
 """
-function imcols(A, b; ϵ = 1e-100)
+function imcols(A, b; ϵ = 1e-10)
   # LU Factorization where L has unit diagonals
   if isempty(A)
     return ([], true)
