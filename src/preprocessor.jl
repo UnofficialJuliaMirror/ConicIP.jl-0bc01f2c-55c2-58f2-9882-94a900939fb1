@@ -7,37 +7,24 @@ Ax = b
 
 and checks if the equations are consistent.
 """
-function imcols(A, b; ϵ = 1e-10)
-  # LU Factorization where L has unit diagonals
-  if isempty(A)
-    return ([], true)
-  end
+function imcols(A,b, ϵ = 1e-8)
 
+  A = sparse(A)
   nA = vecnorm(A); A = A/nA; b = b/nA
 
-  # REPLACE THIS WITH SPQR ONCE THE FACTORS ARE EXTRACTABLE
-  (Q,R) = qr(full(A*A'))
+  if isempty(A); return ([], true); end
 
-  # Identify rows in U which are equal to 0, i.e. are linear
-  # combinations of the previous rows
-  # z = sum(abs(U),2)[:] .< ϵ
-  z = abs(diag(R)) .< ϵ
+  B = qrfact(A');
+  k = size(A,2);
+  x = SparseMatrix.CHOLMOD.Dense(rand(k,3));
+  Z = SparseMatrix.SPQR.solve(SparseMatrix.SPQR.RETX_EQUALS_B, B, x);
+  R = find(sum(abs(Z),2) .> ϵ)
 
-  # check for consistency in redundant constraints
-  # Method
-  #  - Solve reduced, full rank system
-  #  - Check if the answer consistent
-  if !isempty(z)
-    A₀ = A[!z,:]; b₀ = b[!z]
-    x = A₀\b₀ # Solve full rank system
-    if norm(A*x - b, Inf) > ϵ*100
-      return([], false)
-    end
-  end
+  if isempty(R); return ([], true); end
 
-  return (sort(find(!z)), true)
+  return (norm(A*(A[R,:]\b[R,:]) - b, Inf) < ϵ) ? (R, true) : ([], false)
+
 end
-
 
 """
 ConicIP with preprocessing to ensure the following
@@ -57,7 +44,7 @@ function preprocess_conicIP(Q, c::Matrix,
 
   if verbose == true
     println()
-    println(" > INTERIOR POINT PREPROCESSOR v0.7 (July 2016)")
+    println(" > INTERIOR POINT PREPROCESSOR v0.7.1 (Aug 2016)")
     println()
   end
 
