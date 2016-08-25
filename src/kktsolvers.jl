@@ -182,10 +182,11 @@ function kktsolver_sparse(Q, A, G, cone_dims)
   A = sparse(A)
   G = sparse(G)
 
+  Fp = placeholder(cone_dims)
+
   if count_lift(cone_dims) < count_dense(cone_dims)
-    println("lifting")
+
     # precompute sparse structure and analyze it
-    Fp = placeholder(cone_dims)
     (FᵀFA, FᵀFB, invFᵀFD) = lift(Fp'Fp); r = size(invFᵀFD,1)
     Z = [ Q             G'            -A'            spzeros(n,r)
           G             spzeros(p,p)   spzeros(p,m)  spzeros(p,r)
@@ -193,15 +194,17 @@ function kktsolver_sparse(Q, A, G, cone_dims)
           spzeros(r,n)  spzeros(r,p)   FᵀFB'         invFᵀFD        ]
     Zᶠ  = lufact(Z)
     Z.nzval[:] = 1:length(Z.nzval)
-    I₁₁ = round(Int, Z[n+p+1:n+p+m,n+p+1:n+p+m].nzval )
-    I₁₂ = round(Int, Z[n+p+1:n+p+m,n+p+m+1:end].nzval )
-    I₂₁ = round(Int, Z[n+p+m+1:end,n+p+1:n+p+m].nzval )
-    I₂₂ = round(Int, Z[n+p+m+1:end,n+p+m+1:end].nzval )
+    I₁₁ = round( Int, Z[n+p+1:n+p+m,n+p+1:n+p+m].nzval )
+    I₁₂ = round( Int, Z[n+p+1:n+p+m,n+p+m+1:end].nzval )
+    I₂₁ = round( Int, Z[n+p+m+1:end,n+p+1:n+p+m].nzval )
+    I₂₂ = round( Int, Z[n+p+m+1:end,n+p+m+1:end].nzval )
 
     function solve3x3gen_lift(F, F⁻ᵀ)
 
       (FᵀFA, FᵀFB, invFᵀFD) = lift(F'F); r = size(invFᵀFD,1)
 
+      # In the first iteration, FᵀF is the identity. This
+      # detects that
       if r == 0
         Z₀ = [ Q        G'             -A' 
                G        spzeros(p,p)   spzeros(p,m)
@@ -213,6 +216,8 @@ function kktsolver_sparse(Q, A, G, cone_dims)
         end       
         return solve3x3I
       else
+        # If the sparsity structure is the same, you can reuse
+        # the symbolic factorization.        
         Zᶠ.nzval[I₁₁] = FᵀFA.nzval
         Zᶠ.nzval[I₁₂] = FᵀFB.nzval
         Zᶠ.nzval[I₂₁] = FᵀFB'.nzval
@@ -231,7 +236,7 @@ function kktsolver_sparse(Q, A, G, cone_dims)
   else
 
     # Compute sparse structure and analyze it
-    FᵀFp = sparse(placeholder(cone_dims))
+    FᵀFp = sparse(Fp'Fp)
     Z = [ Q        G'             -A' 
           G        spzeros(p,p)   spzeros(p,m)
           A        spzeros(m,p)   FᵀFp         ]
