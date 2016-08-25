@@ -128,8 +128,8 @@ cum_range(x) = [i:(j-1) for (i,j) in
         zip(cumsum([1;x])[1:end-1], cumsum([1;x])[2:end])]
 QF(r) = 2*r[1]*r[1] - dot(r,r)
 Q(x::VectorTypes,y::VectorTypes) = 2*x[1]*y[1] - dot(x,y) # xᵀJy
-fts(x₁, α₁, y₁, x₂, α₂, y₂)      = (x₁'*x₂) - α₂*(x₁'*y₂) -
-          α₁*(y₁'*x₂) + α₁*α₂*(y₁'*y₂) # (x₁ - α₁*y₁)'(x₂ - α₂y₂)
+fts(x₁, α₁, y₁, x₂, α₂, y₂)      = vecdot(x₁,x₂) - α₂*vecdot(x₁,y₂) -
+          α₁*vecdot(y₁,x₂) + α₁*α₂*vecdot(y₁,y₂) # (x₁ - α₁*y₁)'(x₂ - α₂y₂)
 
 function nestod_soc(z,s)
 
@@ -145,19 +145,20 @@ function nestod_soc(z,s)
   z = z/sqrt(QF(z))
   s = s/sqrt(QF(s))
 
-  γ = sqrt((1 + (z'*s)[1])/2)
+  γ = sqrt((1 + vecdot(z,s))/2)
 
   # Jz = J*z;
-  Jz = -z; Jz[1] = -Jz[1]
+  scal!(length(z), -1., z, 1)
+  z[1] = -z[1]
 
-  w = (1./(2.*γ))*(s + Jz)
+  w = (1./(2.*γ))*(s + z)
   w[1] = w[1] + 1
-  v = (sqrt(2*β)/sqrt(2*w[1]))*w
+  scal!(length(w), (sqrt(2*β)/sqrt(2*w[1])), w, 1)
 
-  J = Diag(β*ones(n))
+  J = Diag(Float64[β for i = 1:n])
   J.diag[1] = -β
 
-  return SymWoodbury(J, v, 1.)
+  return SymWoodbury(J, w, 1.)
 
 end
 
@@ -314,12 +315,18 @@ function dsoc!(y,x, o)
   #     │ -yb   (αI + yb*yb')/y1  │ │ xb │
   #     └                         ┘ └    ┘
 
-  y1 = x[1]; yb = x[2:end]
+  @inbounds y1 = x[1]; 
+  @inbounds yb = view(x,2:length(x))
   α = y1^2 - vecdot(yb,yb)
 
-  x1 = y[1]; xb = y[2:end]
-  o[1] = (y1*x1 - vecdot(yb,xb) )/α
-  o[2:end] = (-yb*x1 + (α*xb + vecdot(yb,xb)*yb)/y1)/α
+  @inbounds x1 = y[1]; 
+  @inbounds xb = view(y,2:length(x))
+  @inbounds o[1] = (y1*x1 - vecdot(yb,xb) )/α  
+  β1 = ((-x1/α) + vecdot(yb,xb)/(y1*α))
+  β2 = 1/y1
+  @inbounds for i = 2:length(o)
+    o[i] = yb[i-1]*β1 + xb[i-1]*β2
+  end
 
 end
 
@@ -679,7 +686,7 @@ function conicIP(
     r0 = v4x1(rleft.y - c, rleft.w - d, rleft.v - b, rleft.s);
 
     # Gap
-    μbar = z.v'z.s
+    μbar = vecdot(z.v,z.s)
     μ    = μbar/conedim
 
     # ────────────────────────────────────────────────────────────
@@ -693,7 +700,7 @@ function conicIP(
 
     if max(rDu, rPr, rCp) < optBest
       sol.y[:] = z.y; sol.w[:] = z.w; sol.v[:] = z.v
-      sol.Iter = Iter; sol.Mu = μ[1]; 
+      sol.Iter = Iter; sol.Mu = μ; 
       sol.duFeas = rDu; sol.prFeas = rPr; sol.muFeas = rCp
       optBest = max(rDu, rPr, rCp)
     end
@@ -790,7 +797,7 @@ function conicIP(
     if sol.status != :None; return sol; end
 
     # Cause of Divergence Unknown
-    if !all(isfinite([μ[1], rDu, rPr, rCp]))
+    if !all(isfinite([μ, rDu, rPr, rCp]))
       if verbose; print("\n > EXIT -- Error!\n\n"); end
       sol.status = :Error; return sol
     end

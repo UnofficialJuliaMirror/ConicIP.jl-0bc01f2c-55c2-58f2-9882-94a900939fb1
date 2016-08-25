@@ -129,20 +129,25 @@ function count_dense(cone_dims)
   return n
 end
 
+"""
+Creates a matrix with the same sparsity structure as F
+"""
 function placeholder(cone_dims)
   num_cones = length(cone_dims)
   B = Block(num_cones);
   for i = 1:num_cones
     (ctype, k) = cone_dims[i]
-    if ctype == "R"; B[i] = ConicIP.Diag(2*ones(k)); end
-    if ctype == "Q"; B[i] = SymWoodbury(ConicIP.Diag(3*ones(k)), ones(k), 1.); end
-    if ctype == "S"; B[i] = ConicIP.VecCongurance(ConicIP.mat(ones(k)) + I); end
+    if ctype == "R"; B[i] = ConicIP.Diag(2*rand(k)); end
+    if ctype == "Q"; B[i] = SymWoodbury(ConicIP.Diag(3*rand(k)), rand(k), 1.); end
+    if ctype == "S"; B[i] = ConicIP.VecCongurance(ConicIP.mat(rand(k)) + I); end
   end
   return B
 end
 
+"""
+Checks if two sparse matrices have the same sparse structure
+"""
 function identical_sparse_structure(A::SparseMatrixCSC,B::SparseMatrixCSC)
-
   if length(A.nzval) != length(B.nzval)
     return false
   end
@@ -151,7 +156,6 @@ function identical_sparse_structure(A::SparseMatrixCSC,B::SparseMatrixCSC)
     return true
   end
   return false
-
 end
 
 """ 
@@ -202,7 +206,6 @@ function kktsolver_sparse(Q, A, G, cone_dims)
     function solve3x3gen_lift(F, F⁻ᵀ)
 
       (FᵀFA, FᵀFB, invFᵀFD) = lift(F'F); r = size(invFᵀFD,1)
-
       # In the first iteration, FᵀF is the identity. This
       # detects that
       if r == 0
@@ -217,7 +220,7 @@ function kktsolver_sparse(Q, A, G, cone_dims)
         return solve3x3I
       else
         # If the sparsity structure is the same, you can reuse
-        # the symbolic factorization.        
+        # the symbolic factorization.
         Zᶠ.nzval[I₁₁] = FᵀFA.nzval
         Zᶠ.nzval[I₁₂] = FᵀFB.nzval
         Zᶠ.nzval[I₂₁] = FᵀFB'.nzval
