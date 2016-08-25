@@ -157,7 +157,7 @@ function nestod_soc(z,s)
   J = Diag(β*ones(n))
   J.diag[1] = -β
 
-  return SymWoodbury(J, reshape(v, length(v), 1), ones(1,1))
+  return SymWoodbury(J, v, 1.)
 
 end
 
@@ -532,7 +532,7 @@ function conicIP(
     # Linesearch
 
     min_α = Inf;
-    for (btype, I, i) = block_data
+    @inbounds for (btype, I, i) = block_data
       xI = view(x,I)
       dI = ( d == nothing ? nothing : view(d,I) )
       if btype == "R"; α = maxstep_rp(xI,dI);  end
@@ -552,7 +552,7 @@ function conicIP(
 
     B = Block(size(block_sizes,1));
 
-    for (btype, I, i) = block_data
+    @inbounds for (btype, I, i) = block_data
       xI = view(x,I); yI = view(y,I);
       if btype == "R"; B[i] = Diag(sqrt(yI./xI)); end
       if btype == "Q"; B[i] = nestod_soc(xI, yI); end
@@ -568,7 +568,7 @@ function conicIP(
     # Group division x ○\ y
 
     o = zeros(length(x),1)
-    for (btype, I, i) = block_data
+    @inbounds for (btype, I, i) = block_data
       xI = view(x,I); yI = view(y,I); oI = view(o,I)
       if btype == "R"; drp!(xI, yI, oI);  end
       if btype == "Q"; dsoc!(xI, yI, oI); end
@@ -583,7 +583,7 @@ function conicIP(
     # Group product x ○ y
 
     o = zeros(length(x),1)
-    for (btype, I, i) = block_data
+    @inbounds for (btype, I, i) = block_data
       xI = view(x,I); yI = view(y,I); oI = view(o,I)
       if btype == "R"; xrp!(xI, yI, oI);  end
       if btype == "Q"; xsoc!(xI, yI, oI); end
@@ -593,7 +593,7 @@ function conicIP(
 
   end
 
-  solve3x3gen = kktsolver(Q,A,G)
+  solve3x3gen = kktsolver(Q,A,G,cone_dims)
 
   function solve4x4gen(λ, F, F⁻ᵀ, solve3x3gen = solve3x3gen)
 

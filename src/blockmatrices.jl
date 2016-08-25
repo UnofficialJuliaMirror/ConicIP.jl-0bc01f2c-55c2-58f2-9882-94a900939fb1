@@ -85,7 +85,7 @@ function broadcastf(op::Function, A::Block, x::Vector)
 
   y = similar(x)
   i = 1
-  for I = Task( () -> blockIter(A) )
+  @inbounds for I = Task( () -> blockIter(A) )
     xI = view(x,I);
     y[I] = op(A.Blocks[i], xI)
     i += 1;
@@ -98,7 +98,7 @@ function broadcastf(op::Function, A::Block, X::Matrix)
 
   Y = similar(X)
   i = 1
-  for I = Task( () -> blockIter(A) )
+  @inbounds for I = Task( () -> blockIter(A) )
     XI = view(X,I,:);
     Y[I,:] = op(A.Blocks[i],XI)
     i += 1;
@@ -110,7 +110,7 @@ end
 function Base.sparse(A::Block)
 
   I₊, J₊, V₊ = Int[], Int[], Float64[]
-  for (I,Blk) = zip(block_idx(A), A.Blocks)
+  @inbounds for (I,Blk) = zip(block_idx(A), A.Blocks)
     Aᵢ = sparse(Blk)
     rows = rowvals(Aᵢ)
     vals = nonzeros(Aᵢ)

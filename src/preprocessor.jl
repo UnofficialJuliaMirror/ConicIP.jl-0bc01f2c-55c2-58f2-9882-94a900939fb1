@@ -1,3 +1,5 @@
+using Compat
+
 """
   imcols(A, b; ϵ = 1e-10)
 
@@ -16,8 +18,8 @@ function imcols(A,b, ϵ = 1e-8)
 
   B = qrfact(A');
   k = size(A,2);
-  x = SparseMatrix.CHOLMOD.Dense(rand(k,3));
-  Z = SparseMatrix.SPQR.solve(SparseMatrix.SPQR.RETX_EQUALS_B, B, x);
+  x = SparseArrays.CHOLMOD.Dense(rand(k,3));
+  Z = SparseArrays.SPQR.solve(SparseArrays.SPQR.RETX_EQUALS_B, B, x);
   R = find(sum(abs(Z),2) .> ϵ)
 
   if isempty(R); return ([], true); end

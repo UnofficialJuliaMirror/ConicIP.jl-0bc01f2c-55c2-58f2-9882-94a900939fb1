@@ -26,7 +26,8 @@ function +(A::MatrixTypes,B::Diag)
     for i = 1:size(A,2); O[i,i] = A[i,i] + B.diag[i]; end; O
 end
 *(α::Real,B::Diag)             = Diag(α*B.diag)
-*(A::Diag,B::AbstractMatrix)           = A.diag.*B
+*(A::Diag,B::AbstractMatrix)   = A.diag.*B
+*(A::Diag,b::AbstractVector)   = A.diag.*b
 +(B::Diag,A::MatrixTypes)      = A + B
 ^(A::Diag, n::Integer)         = Diag(A.diag.^n)
 Base.full(A::Diag)             = full(Diagonal(A.diag))
