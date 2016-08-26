@@ -297,13 +297,13 @@ end
 
 function drp!(x, y, o)
 
-    for i = 1:length(x); o[i] = x[i]/y[i]; end
+    @inbounds @simd for i = 1:length(x); o[i] = x[i]/y[i]; end
 
 end
 
 function xrp!(x, y, o)
 
-    for i = 1:length(x); o[i] = x[i]*y[i]; end
+    @inbounds @simd for i = 1:length(x); o[i] = x[i]*y[i]; end
 
 end
 
@@ -321,10 +321,10 @@ function dsoc!(y,x, o)
 
   @inbounds x1 = y[1]; 
   @inbounds xb = view(y,2:length(x))
-  @inbounds o[1] = (y1*x1 - vecdot(yb,xb) )/α  
+  o[1] = (y1*x1 - vecdot(yb,xb) )/α  
   β1 = ((-x1/α) + vecdot(yb,xb)/(y1*α))
   β2 = 1/y1
-  @inbounds for i = 2:length(o)
+  @inbounds @simd for i = 2:length(o)
     o[i] = yb[i-1]*β1 + xb[i-1]*β2
   end
 
@@ -333,7 +333,7 @@ end
 function xsoc!(x, y, o)
 
   o[1] = dot(x,y)
-  for i = 2:length(x); o[i] = x[1]*y[i] + y[1]*x[i]; end
+  @inbounds @simd for i = 2:length(x); o[i] = x[1]*y[i] + y[1]*x[i]; end
 
 end
 
