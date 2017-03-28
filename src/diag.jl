@@ -16,14 +16,21 @@ VectorTypes = Union{AbstractMatrix, Vector, ViewTypes}
 MatrixTypes = Union{AbstractMatrix, Array{Real,2},
                     SparseMatrixCSC{Real,Integer}}
 
-type Diag 
+type Diag
     diag::Vector
 end
 
++(A::Diag,B::Diag)             = Diag(A.diag + B.diag)
++(A::Diag,T::UniformScaling)   = Diag(A.diag + T.λ)
++(T::UniformScaling,A::Diag)   = Diag(A.diag + T.λ)
+*(T::UniformScaling,A::Diag)   = Diag(A.diag*T.λ)
+*(A::Diag,T::UniformScaling)   = Diag(A.diag*T.λ)
+*(α::Real,A::Diag)             = Diag(A.diag*α)
+*(A::Diag,α::Real)             = Diag(A.diag*α)
 *(A::Diag,B::Diag)             = Diag(A.diag.*B.diag)
 function +(A::MatrixTypes,B::Diag)
-    O = copy(A);
-    for i = 1:size(A,2); O[i,i] = A[i,i] + B.diag[i]; end; O
+  O = copy(A);
+  for i = 1:size(A,2); O[i,i] = A[i,i] + B.diag[i]; end; O
 end
 *(α::Real,B::Diag)             = Diag(α*B.diag)
 *(A::Diag,B::AbstractMatrix)   = A.diag.*B

@@ -248,7 +248,7 @@ function kktsolver_sparse(Q, A, G, cone_dims)
     Iᵤ = round(Int,Z[end-m+1:end,end-m+1:end].nzval)
 
     function solve3x3gen_nolift(F, F⁻ᵀ)
-
+      
       FᵀF = sparse(F'F)
 
       # Check if FᵀF has the same sparsity structure as FᵀF₀

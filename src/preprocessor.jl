@@ -61,7 +61,7 @@ function preprocess_conicIP(Q, c::Matrix,
 
   if !(pconsistent && dconsistent)
     return ConicIP.Solution(zeros(n,1)/0, zeros(p,1)/0,zeros(m,1)/0,
-      :Infeasible, 0, NaN, NaN, NaN, NaN)
+      :Infeasible, 0, NaN, NaN, NaN, NaN, NaN, NaN)
   end
 
   if (verbose == true) && (length(IP) != p)

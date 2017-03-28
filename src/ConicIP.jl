@@ -367,6 +367,8 @@ type Solution
   prFeas :: Real
   duFeas :: Real
   muFeas :: Real
+  pobj   :: Real
+  dobj   :: Real
 
 end
 
@@ -658,7 +660,7 @@ function conicIP(
   #  Iterate Loop
   # ────────────────────────────────────────────────────────────
 
-  sol     = Solution(z.y, z.w, z.v, :None, 0, 0, Inf, Inf, Inf)
+  sol     = Solution(z.y, z.w, z.v, :None, 0, 0, Inf, Inf, Inf, Inf, -Inf)
   optBest = Inf
   rStep   = 0
   rnorm   = 0
@@ -707,6 +709,9 @@ function conicIP(
 
     pobj = 0.5*vecdot(z.y, Q*z.y) - vecdot(c, z.y)
     dobj = pobj + vecdot(z.w, r0.w) + vecdot(z.v, r0.v) - vecdot(z.v, z.s)  
+
+    sol.pobj = pobj
+    sol.dobj = dobj
 
     # ────────────────────────────────────────────────────────────
     # Convergence Checks (on previous iterate)
