@@ -9,7 +9,7 @@
 
 #notebook-container {
 font-family: Computer Modern;
-  width:700px;
+  width:900px;
   padding: 20px;
   background-color: #FFF;
   min-height: 10;
@@ -33,7 +33,7 @@ src:url('http://gabgoh.github.io/cmunorm.ttf');
 fonts/cm-unicode/fonts/otf/cmunss.otf'); */
 
 div.cell{
-  width:600px;
+  width:850px;
   margin-left:auto;
   margin-right:auto;
 }
