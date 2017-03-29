@@ -8,7 +8,6 @@ export Id, conicIP, pivot, preprocess_conicIP,
 import Base:+,*,-,\,^
 using Base.LinAlg.BLAS:axpy!,scal!
 using WoodburyMatrices
-using Compat:view
 
 include("diag.jl")
 include("blockmatrices.jl")
