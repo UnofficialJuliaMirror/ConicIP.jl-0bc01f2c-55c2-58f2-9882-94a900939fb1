@@ -1,5 +1,3 @@
-using Compat
-
 """
   imcols(A, b; ϵ = 1e-10)
 
