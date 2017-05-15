@@ -29,17 +29,17 @@ end
 *(A::Diag,α::Real)             = Diag(A.diag*α)
 *(A::Diag,B::Diag)             = Diag(A.diag.*B.diag)
 function +(A::MatrixTypes,B::Diag)
-  O = copy(A);
-  for i = 1:size(A,2); O[i,i] = A[i,i] + B.diag[i]; end; O
+    O = copy(A)
+    for i = 1:size(A,2); O[i,i] = A[i,i] + B.diag[i]; end
+    return O
 end
-*(α::Real,B::Diag)             = Diag(α*B.diag)
 *(A::Diag,B::AbstractMatrix)   = A.diag.*B
 *(A::Diag,b::AbstractVector)   = A.diag.*b
 +(B::Diag,A::MatrixTypes)      = A + B
 ^(A::Diag, n::Integer)         = Diag(A.diag.^n)
 Base.full(A::Diag)             = full(Diagonal(A.diag))
 Base.inv(A::Diag)              = Diag(1.0./A.diag)
-*(A::Diag, b::ViewTypes)       = A.diag.*b;
+*(A::Diag, b::ViewTypes)       = A.diag.*b
 Base.size(A::Diag, k::Integer) = (k == 1 || k == 2) ? size(A.diag,1) : 1
 Base.size(A::Diag)             = (size(A.diag,1), size(A.diag,1))
 Id(n::Integer)                 = Diag(ones(n))
@@ -49,5 +49,5 @@ Base.Ac_mul_B(O1::Diag, O2::Diag) = O1*O2
 
 # returns a pointer to the original matrix, this is consistent with the
 # behavior of Symmetric in Base.
-Base.ctranspose(A::Diag)       = A 
+Base.ctranspose(A::Diag) = A 
 Base.Ac_mul_B(A::Diag, x::VectorTypes) = A*x
